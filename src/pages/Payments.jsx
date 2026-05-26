@@ -132,7 +132,7 @@ export default function Payments() {
           <EmptyState icon={CreditCard} title="Нет оплат" />
         ) : (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <Table>
+            <Table className="responsive-card-table">
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-semibold">Ученик</TableHead>
@@ -147,13 +147,13 @@ export default function Payments() {
               <TableBody>
                 {pagination.paginatedItems.map(p => (
                   <TableRow key={p.id} className="hover:bg-muted/20">
-                    <TableCell className="text-sm font-medium">{p.student_name}</TableCell>
-                    <TableCell className="text-sm">{p.branch_name}</TableCell>
-                    <TableCell className="text-sm font-semibold">{formatMoney(p.amount)}</TableCell>
-                    <TableCell className="text-sm">{p.period || '—'}</TableCell>
-                    <TableCell className="text-sm">{PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}</TableCell>
-                    <TableCell className="text-sm">{formatDate(p.payment_date)}</TableCell>
-                    <TableCell><StatusBadge status={p.status} label={PAYMENT_STATUS_LABELS[p.status]} /></TableCell>
+                    <TableCell data-label="Ученик" className="text-sm font-medium">{p.student_name}</TableCell>
+                    <TableCell data-label="Филиал" className="text-sm">{p.branch_name}</TableCell>
+                    <TableCell data-label="Сумма" className="text-sm font-semibold">{formatMoney(p.amount)}</TableCell>
+                    <TableCell data-label="Период" className="text-sm">{p.period || '—'}</TableCell>
+                    <TableCell data-label="Способ" className="text-sm">{PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}</TableCell>
+                    <TableCell data-label="Дата" className="text-sm">{formatDate(p.payment_date)}</TableCell>
+                    <TableCell data-label="Статус"><StatusBadge status={p.status} label={PAYMENT_STATUS_LABELS[p.status]} /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>

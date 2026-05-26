@@ -119,7 +119,7 @@ export default function Sales() {
           <EmptyState icon={ShoppingCart} title="Нет продаж" />
         ) : (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <Table>
+            <Table className="responsive-card-table">
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-semibold">Дата</TableHead>
@@ -134,13 +134,13 @@ export default function Sales() {
               <TableBody>
                 {pagination.paginatedItems.map(s => (
                   <TableRow key={s.id} className="hover:bg-muted/20">
-                    <TableCell className="text-sm">{formatDate(s.sale_date)}</TableCell>
-                    <TableCell className="text-sm font-medium">{s.product_name}</TableCell>
-                    <TableCell className="text-sm">{s.student_name || s.buyer_name || '—'}</TableCell>
-                    <TableCell className="text-sm">{s.branch_name}</TableCell>
-                    <TableCell className="text-sm">{s.quantity}</TableCell>
-                    <TableCell className="text-sm font-semibold">{formatMoney(s.total)}</TableCell>
-                    <TableCell className="text-sm">{PAYMENT_METHOD_LABELS[s.payment_method] || s.payment_method}</TableCell>
+                    <TableCell data-label="Дата" className="text-sm">{formatDate(s.sale_date)}</TableCell>
+                    <TableCell data-label="Товар" className="text-sm font-medium">{s.product_name}</TableCell>
+                    <TableCell data-label="Покупатель" className="text-sm">{s.student_name || s.buyer_name || '—'}</TableCell>
+                    <TableCell data-label="Филиал" className="text-sm">{s.branch_name}</TableCell>
+                    <TableCell data-label="Кол-во" className="text-sm">{s.quantity}</TableCell>
+                    <TableCell data-label="Сумма" className="text-sm font-semibold">{formatMoney(s.total)}</TableCell>
+                    <TableCell data-label="Способ" className="text-sm">{PAYMENT_METHOD_LABELS[s.payment_method] || s.payment_method}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

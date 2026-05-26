@@ -138,20 +138,21 @@ export default function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-9 w-64 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted"
+        className="flex h-10 w-10 items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-0 text-sm text-muted-foreground transition-colors hover:bg-muted sm:h-9 sm:w-64 sm:justify-start sm:px-3"
+        aria-label="Поиск"
       >
         <Search className="h-4 w-4" />
-        <span className="flex-1 text-left">Поиск...</span>
-        <kbd className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+        <span className="hidden flex-1 text-left sm:block">Поиск...</span>
+        <kbd className="hidden rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">⌘K</kbd>
       </button>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh]" onClick={() => setOpen(false)}>
+    <div className="fixed inset-0 z-[200] flex items-start justify-center px-3 pt-[max(4rem,calc(12vh_+_env(safe-area-inset-top)))]" onClick={() => setOpen(false)}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        className="relative max-h-[calc(100dvh_-_2rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))] w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
@@ -175,7 +176,7 @@ export default function GlobalSearch() {
           {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted border-t-primary" />}
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto py-2">
+        <div className="max-h-[min(400px,calc(100dvh_-_10rem))] overflow-y-auto py-2">
           {!query && recent.length > 0 && (
             <div>
               <div className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Недавние</div>
@@ -278,7 +279,7 @@ export default function GlobalSearch() {
           )}
         </div>
 
-        <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+        <div className="hidden items-center gap-4 border-t border-border px-4 py-2 text-[11px] text-muted-foreground sm:flex">
           <span><kbd className="rounded border border-border px-1 font-mono">↑↓</kbd> навигация</span>
           <span><kbd className="rounded border border-border px-1 font-mono">Enter</kbd> открыть</span>
           <span><kbd className="rounded border border-border px-1 font-mono">Esc</kbd> закрыть</span>

@@ -100,7 +100,7 @@ export default function BulkTransferDialog({ open, onClose, products, branches, 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl flex max-h-[90dvh] flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="w-5 h-5 text-primary" />
@@ -149,7 +149,7 @@ export default function BulkTransferDialog({ open, onClose, products, branches, 
                   const isSelected = !!selected[p.id];
                   const disabled = fromBranch && avail === 0;
                   return (
-                    <div key={p.id} className={cn("flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors", disabled && "opacity-40 cursor-not-allowed", isSelected && "bg-primary/5")}>
+                    <div key={p.id} className={cn("flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors sm:flex-nowrap", disabled && "opacity-40 cursor-not-allowed", isSelected && "bg-primary/5")}>
                       <button type="button" onClick={() => !disabled && toggleProduct(p)} className="shrink-0">
                         <div className={cn("w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
                           isSelected ? "bg-primary border-primary" : "border-border hover:border-primary/50"
@@ -162,7 +162,7 @@ export default function BulkTransferDialog({ open, onClose, products, branches, 
                         <div className="text-xs text-muted-foreground">{PRODUCT_CATEGORY_LABELS[p.category]}{p.sku ? ` · ${p.sku}` : ''}{fromBranch ? ` · Доступно: ${avail}` : ''}</div>
                       </div>
                       {isSelected && (
-                        <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                        <div className="ml-8 flex shrink-0 items-center gap-1.5 sm:ml-0" onClick={e => e.stopPropagation()}>
                           <button type="button" onClick={() => setQty(p.id, selected[p.id] - 1)} className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
                             <Minus className="w-3 h-3" />
                           </button>

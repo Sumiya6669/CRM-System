@@ -11,7 +11,7 @@ export default function StatCard({ label, value, icon: Icon, sublabel, trend, tr
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">{label}</p>
-            <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+            <p className="mt-2 break-words text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{value}</p>
             {sublabel && <p className="mt-1 text-xs text-muted-foreground">{sublabel}</p>}
           </div>
           {Icon && (

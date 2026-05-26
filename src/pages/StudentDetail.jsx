@@ -95,13 +95,13 @@ export default function StudentDetail() {
         {/* Header card */}
         <Card className="rounded-2xl border-border mb-6">
           <CardContent className="p-6">
-            <div className="flex items-start gap-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
               <div className="w-20 h-20 rounded-2xl bg-accent flex items-center justify-center text-2xl font-bold text-accent-foreground shrink-0">
                 {student.full_name?.charAt(0)}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-xl font-bold">{student.full_name}</h2>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex flex-wrap items-center gap-3">
+                  <h2 className="break-words text-xl font-bold">{student.full_name}</h2>
                   <StatusBadge status={student.status} label={STATUS_LABELS[student.status]} />
                 </div>
                 <div className="text-sm text-muted-foreground mb-3">{student.student_id} · {student.branch_name} · {student.group_name || 'Без группы'}</div>
@@ -112,7 +112,7 @@ export default function StudentDetail() {
                   <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-muted-foreground" /><span>{student.branch_name}</span></div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 <Button variant="outline" size="sm" onClick={() => setShowTransfer(true)} className="gap-1"><ArrowLeftRight className="w-3.5 h-3.5" /> Перевести</Button>
                 <Button variant="outline" size="sm" onClick={() => archiveMutation.mutate()} className="gap-1 text-red-600 hover:text-red-700"><Archive className="w-3.5 h-3.5" /> Архив</Button>
               </div>

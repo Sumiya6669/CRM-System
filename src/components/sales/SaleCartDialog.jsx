@@ -104,7 +104,7 @@ export default function SaleCartDialog({ open, onClose, products, students, bran
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl flex max-h-[90dvh] flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
@@ -114,7 +114,7 @@ export default function SaleCartDialog({ open, onClose, products, students, bran
         </DialogHeader>
 
         {step === 1 && (
-          <div className="flex gap-4 flex-1 min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 sm:flex-row">
             {/* Left: product catalog */}
             <div className="flex-1 min-w-0 flex flex-col gap-3">
               <div className="space-y-1.5">
@@ -149,7 +149,7 @@ export default function SaleCartDialog({ open, onClose, products, students, bran
             </div>
 
             {/* Right: cart */}
-            <div className="w-64 flex flex-col gap-3 shrink-0">
+            <div className="flex w-full shrink-0 flex-col gap-3 sm:w-64">
               <Label className="text-xs">Корзина</Label>
               <div className="flex-1 border border-border rounded-xl overflow-hidden max-h-64 overflow-y-auto">
                 {cart.length === 0 ? (

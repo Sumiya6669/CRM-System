@@ -128,7 +128,7 @@ export default function Inventory() {
           <EmptyState icon={Package} title="Нет товаров" />
         ) : (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <Table>
+            <Table className="responsive-card-table">
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-semibold">Артикул</TableHead>
@@ -143,20 +143,20 @@ export default function Inventory() {
               <TableBody>
                 {pagination.paginatedItems.map(p => (
                   <TableRow key={p.id} className="hover:bg-muted/20">
-                    <TableCell className="text-xs text-muted-foreground font-mono">{p.sku || '—'}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Артикул" className="text-xs text-muted-foreground font-mono">{p.sku || '—'}</TableCell>
+                    <TableCell data-label="Название">
                       <div className="text-sm font-medium">{p.name}</div>
                       {p.color && <div className="text-xs text-muted-foreground">{p.color}</div>}
                     </TableCell>
-                    <TableCell className="text-sm">{PRODUCT_CATEGORY_LABELS[p.category]}</TableCell>
-                    <TableCell className="text-sm">{p.size || '—'}</TableCell>
-                    <TableCell className="text-sm font-medium">{formatMoney(p.sell_price)}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Категория" className="text-sm">{PRODUCT_CATEGORY_LABELS[p.category]}</TableCell>
+                    <TableCell data-label="Размер" className="text-sm">{p.size || '—'}</TableCell>
+                    <TableCell data-label="Цена" className="text-sm font-medium">{formatMoney(p.sell_price)}</TableCell>
+                    <TableCell data-label="Общий остаток">
                       <span className={`text-sm font-semibold ${p.isLow ? 'text-red-600' : ''}`}>{p.totalStock}</span>
                       {p.isLow && <span className="ml-1 text-xs text-red-500">↓</span>}
                     </TableCell>
                     {p.branchStocks.map(bs => (
-                      <TableCell key={bs.branch.id} className="text-sm">{bs.quantity}</TableCell>
+                      <TableCell key={bs.branch.id} data-label={bs.branch.name || 'Филиал'} className="text-sm">{bs.quantity}</TableCell>
                     ))}
                   </TableRow>
                 ))}

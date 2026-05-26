@@ -38,7 +38,7 @@ export default function SearchableSelect({ items = [], value, onChange, placehol
         onClick={() => setOpen(o => !o)}
         className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
       >
-        <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
+        <span className={cn('min-w-0 truncate', selected ? 'text-foreground' : 'text-muted-foreground')}>
           {selected ? selected.label : placeholder}
         </span>
         <div className="flex items-center gap-1">
@@ -48,7 +48,7 @@ export default function SearchableSelect({ items = [], value, onChange, placehol
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
             <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <input
@@ -59,7 +59,7 @@ export default function SearchableSelect({ items = [], value, onChange, placehol
               className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
             />
           </div>
-          <div className="max-h-56 overflow-y-auto py-1">
+          <div className="max-h-[min(14rem,50dvh)] overflow-y-auto py-1">
             {filtered.length === 0 && (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground">Не найдено</div>
             )}

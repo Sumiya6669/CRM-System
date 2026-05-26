@@ -135,7 +135,7 @@ export default function Students() {
           <EmptyState icon={Users} title="Ученики не найдены" description="Попробуйте изменить фильтры" />
         ) : (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <Table>
+            <Table className="responsive-card-table">
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-semibold">ID</TableHead>
@@ -153,19 +153,19 @@ export default function Students() {
               <TableBody>
                 {pagination.paginatedItems.map(s => (
                   <TableRow key={s.id} className="hover:bg-muted/20 transition-colors">
-                    <TableCell className="text-xs text-muted-foreground font-mono">{s.student_id}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="ID" className="text-xs text-muted-foreground font-mono">{s.student_id}</TableCell>
+                    <TableCell data-label="ФИО">
                       <div className="text-sm font-medium">{s.full_name}</div>
                       {s.parent_phone && <div className="text-xs text-muted-foreground">{s.parent_phone}</div>}
                     </TableCell>
-                    <TableCell className="text-sm">{s.branch_name || '—'}</TableCell>
-                    <TableCell className="text-sm">{s.group_name || '—'}</TableCell>
-                    <TableCell><StatusBadge status={s.belt === 'white' ? 'active' : 'active'} label={BELT_LABELS[s.belt] || s.belt} /></TableCell>
-                    <TableCell className="text-sm">{getAge(s.birth_date)}</TableCell>
-                    <TableCell className="text-sm">{formatDate(s.paid_until)}</TableCell>
-                    <TableCell className="text-sm font-medium">{(s.debt || 0) > 0 ? <span className="text-red-600">{formatMoney(s.debt)}</span> : <span className="text-emerald-600">0 ₸</span>}</TableCell>
-                    <TableCell><StatusBadge status={s.status} label={STATUS_LABELS[s.status]} /></TableCell>
-                    <TableCell>
+                    <TableCell data-label="Филиал" className="text-sm">{s.branch_name || '—'}</TableCell>
+                    <TableCell data-label="Группа" className="text-sm">{s.group_name || '—'}</TableCell>
+                    <TableCell data-label="Пояс"><StatusBadge status={s.belt === 'white' ? 'active' : 'active'} label={BELT_LABELS[s.belt] || s.belt} /></TableCell>
+                    <TableCell data-label="Возраст" className="text-sm">{getAge(s.birth_date)}</TableCell>
+                    <TableCell data-label="Оплачено до" className="text-sm">{formatDate(s.paid_until)}</TableCell>
+                    <TableCell data-label="Долг" className="text-sm font-medium">{(s.debt || 0) > 0 ? <span className="text-red-600">{formatMoney(s.debt)}</span> : <span className="text-emerald-600">0 ₸</span>}</TableCell>
+                    <TableCell data-label="Статус"><StatusBadge status={s.status} label={STATUS_LABELS[s.status]} /></TableCell>
+                    <TableCell data-label="">
                       <Link to={`/students/${s.id}`}>
                         <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
                       </Link>

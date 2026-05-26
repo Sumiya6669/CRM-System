@@ -56,7 +56,7 @@ export default function ActivityLogPage() {
           <EmptyState icon={ScrollText} title="Нет записей" />
         ) : (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <Table>
+            <Table className="responsive-card-table">
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-semibold">Дата</TableHead>
@@ -70,18 +70,18 @@ export default function ActivityLogPage() {
               <TableBody>
                 {pagination.paginatedItems.map(l => (
                   <TableRow key={l.id} className="hover:bg-muted/20">
-                    <TableCell className="text-sm">{formatDate(l.created_date)}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="Дата" className="text-sm">{formatDate(l.created_date)}</TableCell>
+                    <TableCell data-label="Тип">
                       <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">
                         {ACTION_TYPE_LABELS[l.action_type] || l.action_type}
                       </span>
                     </TableCell>
-                    <TableCell className="text-sm">{l.description}</TableCell>
-                    <TableCell className="text-sm">{l.branch_name || '—'}</TableCell>
-                    <TableCell className="text-sm font-medium">
+                    <TableCell data-label="Описание" className="text-sm whitespace-normal">{l.description}</TableCell>
+                    <TableCell data-label="Филиал" className="text-sm">{l.branch_name || '—'}</TableCell>
+                    <TableCell data-label="Сумма/Кол-во" className="text-sm font-medium">
                       {l.amount ? formatMoney(l.amount) : l.quantity ? `${l.quantity} шт.` : '—'}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{l.user_name || l.created_by || '—'}</TableCell>
+                    <TableCell data-label="Пользователь" className="text-sm text-muted-foreground">{l.user_name || l.created_by || '—'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -107,28 +107,28 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-3">
               {debtStudents.length > 0 && (
-                <Link to="/students?filter=debt" className="flex items-center justify-between p-3 rounded-xl bg-red-50/60 hover:bg-red-50 transition-colors">
-                  <div className="flex items-center gap-2">
+                <Link to="/students?filter=debt" className="flex items-center justify-between gap-3 p-3 rounded-xl bg-red-50/60 hover:bg-red-50 transition-colors">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-sm font-medium text-red-800">Ученики с долгом</span>
+                    <span className="truncate text-sm font-medium text-red-800">Ученики с долгом</span>
                   </div>
                   <span className="text-sm font-semibold text-red-700">{debtStudents.length}</span>
                 </Link>
               )}
               {overduePayments.length > 0 && (
-                <Link to="/payments?filter=overdue" className="flex items-center justify-between p-3 rounded-xl bg-amber-50/60 hover:bg-amber-50 transition-colors">
-                  <div className="flex items-center gap-2">
+                <Link to="/payments?filter=overdue" className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50/60 hover:bg-amber-50 transition-colors">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-sm font-medium text-amber-800">Просроченные оплаты</span>
+                    <span className="truncate text-sm font-medium text-amber-800">Просроченные оплаты</span>
                   </div>
                   <span className="text-sm font-semibold text-amber-700">{overduePayments.length}</span>
                 </Link>
               )}
               {lowStockProducts.length > 0 && (
-                <Link to="/inventory?filter=low" className="flex items-center justify-between p-3 rounded-xl bg-blue-50/60 hover:bg-blue-50 transition-colors">
-                  <div className="flex items-center gap-2">
+                <Link to="/inventory?filter=low" className="flex items-center justify-between gap-3 p-3 rounded-xl bg-blue-50/60 hover:bg-blue-50 transition-colors">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="text-sm font-medium text-blue-800">Низкий остаток товаров</span>
+                    <span className="truncate text-sm font-medium text-blue-800">Низкий остаток товаров</span>
                   </div>
                   <span className="text-sm font-semibold text-blue-700">{lowStockProducts.length}</span>
                 </Link>
@@ -155,8 +155,8 @@ export default function Dashboard() {
                   .reduce((s, p) => s + (p.amount || 0), 0);
                 const branchDebt = branchStudents.reduce((s, st) => s + (st.debt || 0), 0);
                 return (
-                  <Link key={branch.id} to={`/branches/${branch.id}`} className="flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                    <div>
+                  <Link key={branch.id} to={`/branches/${branch.id}`} className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors">
+                    <div className="min-w-0">
                       <div className="text-sm font-medium">{branch.name}</div>
                       <div className="text-xs text-muted-foreground">{branch.city} · {branchStudents.length} уч.</div>
                     </div>
@@ -182,11 +182,11 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-2">
               {logs.map(log => (
-                <div key={log.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div className="flex items-center gap-3">
+                <div key={log.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                    <div>
-                      <div className="text-sm">{log.description}</div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm">{log.description}</div>
                       <div className="text-xs text-muted-foreground">
                         {log.branch_name && `${log.branch_name} · `}
                         {formatDate(log.created_date)}

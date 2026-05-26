@@ -118,7 +118,7 @@ export default function Attendance() {
           <EmptyState icon={CalendarCheck} title="Нет записей посещаемости" />
         ) : (
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <Table>
+            <Table className="responsive-card-table">
               <TableHeader>
                 <TableRow className="bg-muted/30">
                   <TableHead className="text-xs font-semibold">Дата</TableHead>
@@ -132,12 +132,12 @@ export default function Attendance() {
               <TableBody>
                 {pagination.paginatedItems.map(a => (
                   <TableRow key={a.id} className="hover:bg-muted/20">
-                    <TableCell className="text-sm">{formatDate(a.date)}</TableCell>
-                    <TableCell className="text-sm font-medium">{a.student_name}</TableCell>
-                    <TableCell className="text-sm">{a.branch_name}</TableCell>
-                    <TableCell className="text-sm">{a.group_name || '—'}</TableCell>
-                    <TableCell><StatusBadge status={a.present ? 'active' : 'archived'} label={a.present ? 'Присутствовал' : 'Пропуск'} /></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{a.comment || ''}</TableCell>
+                    <TableCell data-label="Дата" className="text-sm">{formatDate(a.date)}</TableCell>
+                    <TableCell data-label="Ученик" className="text-sm font-medium">{a.student_name}</TableCell>
+                    <TableCell data-label="Филиал" className="text-sm">{a.branch_name}</TableCell>
+                    <TableCell data-label="Группа" className="text-sm">{a.group_name || '—'}</TableCell>
+                    <TableCell data-label="Статус"><StatusBadge status={a.present ? 'active' : 'archived'} label={a.present ? 'Присутствовал' : 'Пропуск'} /></TableCell>
+                    <TableCell data-label="Комментарий" className="text-sm text-muted-foreground">{a.comment || ''}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
