@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: 'Inter', sans-serif;
+
+    --background: 0 0% 100%;
+    --foreground: 0 0% 7%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 12%;
+    --primary: 48 100% 48%;
+    --primary-foreground: 0 0% 7%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 48 100% 90%;
+    --accent-foreground: 0 0% 7%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 48 100% 48%;
+    --chart-1: 48 100% 48%;
+    --chart-2: 45 100% 43%;
+    --chart-3: 0 0% 12%;
+    --chart-4: 0 0% 40%;
+    --chart-5: 0 0% 75%;
+    --radius: 0.75rem;
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 48 100% 48%;
+    --sidebar-primary-foreground: 0 0% 7%;
+    --sidebar-accent: 48 100% 48%;
+    --sidebar-accent-foreground: 0 0% 7%;
+    --sidebar-border: 0 0% 12%;
+    --sidebar-ring: 48 100% 48%;
+
+    --success: 150 50% 40%;
+    --warning: 40 90% 50%;
+  }
+
+  .dark {
+    --background: 0 0% 7%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 345 55% 45%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 345 40% 15%;
+    --accent-foreground: 345 55% 55%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 345 55% 45%;
+    --chart-1: 345 55% 45%;
+    --chart-2: 345 40% 55%;
+    --chart-3: 200 55% 55%;
+    --chart-4: 40 75% 60%;
+    --chart-5: 150 45% 50%;
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 345 55% 45%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 345 40% 15%;
+    --sidebar-accent-foreground: 345 55% 55%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 345 55% 45%;
+    --success: 150 45% 50%;
+    --warning: 40 85% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-inter;
+    min-width: 320px;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  html,
+  #root {
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}
+
+@media (max-width: 767px) {
+  .p-6 {
+    padding: 1rem;
+  }
+
+  .px-6 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .py-6 {
+    padding-bottom: 1rem;
+    padding-top: 1rem;
+  }
+
+  .grid-cols-2,
+  .grid-cols-3,
+  .grid-cols-4 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .max-w-\[1400px\],
+  .max-w-\[1200px\] {
+    max-width: 100%;
+  }
+
+  .min-w-\[200px\] {
+    min-width: 100%;
+  }
+
+  .max-w-\[300px\] {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .w-40,
+  .w-44 {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .responsive-card-table {
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .responsive-card-table thead {
+    display: none;
+  }
+
+  .responsive-card-table tbody {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .responsive-card-table tr {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+    border-radius: 1rem;
+    background: hsl(var(--card));
+  }
+
+  .responsive-card-table td {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    white-space: normal;
+    border-bottom: 1px solid hsl(var(--border));
+    padding: 0.75rem 1rem;
+  }
+
+  .responsive-card-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .responsive-card-table td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .responsive-card-table td:not([data-label])::before,
+  .responsive-card-table td[data-label='']::before {
+    display: none;
+  }
+
+  .responsive-card-table td > * {
+    min-width: 0;
+  }
+}
