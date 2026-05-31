@@ -1,0 +1,1 @@
+import{q as o}from"./react-vendor-VMNv35Ba.js";const c=(e,t=250)=>{const[u,s]=o.useState(e);return o.useEffect(()=>{const n=window.setTimeout(()=>s(e),t);return()=>window.clearTimeout(n)},[e,t]),u};export{c as u};
