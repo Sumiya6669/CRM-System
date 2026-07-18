@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "eslint . --quiet",
     "lint:fix": "eslint . --fix",
+    "supabase:setup": "node scripts/setup-supabase.mjs",
+    "supabase:setup:auth": "node scripts/setup-supabase.mjs --auth-only",
     "typecheck": "tsc -p ./jsconfig.json",
     "preview": "vite preview"
   },
