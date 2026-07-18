@@ -310,7 +310,7 @@ create table if not exists public.invites (
   branch_id uuid references public.branches(id) on delete set null,
   email text not null,
   role public.crm_role not null,
-  token text not null unique default encode(gen_random_bytes(24), 'hex'),
+  token text not null unique default replace(gen_random_uuid()::text, '-', ''),
   status text not null default 'pending',
   expires_at timestamptz not null default now() + interval '7 days',
   accepted_by uuid references public.profiles(id) on delete set null,
