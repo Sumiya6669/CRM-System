@@ -1,4 +1,4 @@
-﻿export const BELT_LABELS = {
+export const BELT_LABELS = {
   white: 'Белый',
   yellow: 'Жёлтый',
   green: 'Зелёный',
