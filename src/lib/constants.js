@@ -74,6 +74,7 @@ export const ACTION_TYPE_LABELS = {
   stock_written_off: 'Списание товара',
   stock_transferred: 'Перемещение товара',
   branch_added: 'Филиал добавлен',
+  branch_deleted: 'Филиал удалён',
   subscription_changed: 'Абонемент изменён',
   attendance_marked: 'Посещение отмечено',
   group_added: 'Группа добавлена',
