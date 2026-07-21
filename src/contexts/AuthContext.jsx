@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '@/services/authService';
 import { SupabaseConfigurationError, supabaseEnv } from '@/lib/supabase';
@@ -29,7 +29,14 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const loadCurrentUser = useCallback(async () => {
+  // Guards against re-entrant calls: prevents onAuthStateChange -> loadCurrentUser -> getSession()
+  // (which can itself trigger a token refresh and a new onAuthStateChange event) from looping.
+  const isLoadingRef = useRef(false);
+  const loadedUserIdRef = useRef(null);
+
+  const loadCurrentUser = useCallback(async (options = {}) => {
+    const { forceProfileReload = false } = options;
+
     if (!supabaseEnv.isConfigured) {
       setAuthError({
         type: 'configuration_missing',
@@ -41,6 +48,12 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
+    if (isLoadingRef.current) {
+      // Already refreshing auth state; avoid starting a second, overlapping request.
+      return null;
+    }
+    isLoadingRef.current = true;
+
     try {
       setIsLoadingAuth(true);
       setAuthError(null);
@@ -49,25 +62,37 @@ export const AuthProvider = ({ children }) => {
       setSession(currentSession || null);
 
       if (!currentSession?.user) {
+        loadedUserIdRef.current = null;
         setUser(null);
         setProfile(null);
         setAuthError({ type: 'auth_required', message: 'Authentication required' });
         return null;
       }
 
+      // If we've already loaded the profile for this exact user in this session,
+      // skip re-fetching it (e.g. on routine TOKEN_REFRESHED events) to avoid
+      // hammering the profiles endpoint on every silent token refresh.
+      if (!forceProfileReload && loadedUserIdRef.current === currentSession.user.id) {
+        setUser(currentSession.user);
+        return currentSession.user;
+      }
+
       const currentProfile = await authService.getProfile(currentSession.user.id);
 
       if (!currentProfile || currentProfile.status !== 'active') {
+        loadedUserIdRef.current = null;
         setUser(currentSession.user);
         setProfile(null);
         setAuthError({ type: 'user_not_registered', message: 'User profile is not active' });
         return currentSession.user;
       }
 
+      loadedUserIdRef.current = currentSession.user.id;
       setUser(currentSession.user);
       setProfile(currentProfile);
       return currentSession.user;
     } catch (error) {
+      loadedUserIdRef.current = null;
       setUser(null);
       setProfile(null);
       setAuthError(getAuthError(error));
@@ -75,6 +100,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setIsLoadingAuth(false);
       setAuthChecked(true);
+      isLoadingRef.current = false;
     }
   }, []);
 
@@ -85,9 +111,11 @@ export const AuthProvider = ({ children }) => {
       return undefined;
     }
 
-    const { data } = authService.onAuthStateChange((_event, nextSession) => {
+    const { data } = authService.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+
       if (!nextSession?.user) {
+        loadedUserIdRef.current = null;
         setUser(null);
         setProfile(null);
         setAuthError({ type: 'auth_required', message: 'Authentication required' });
@@ -95,7 +123,15 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      loadCurrentUser();
+      // TOKEN_REFRESHED just rotates the access token for the same user — no need to
+      // re-fetch the profile or flip loading state, which is what was causing repeated
+      // refresh/getSession cycles to cascade into each other.
+      if (event === 'TOKEN_REFRESHED' && loadedUserIdRef.current === nextSession.user.id) {
+        setUser(nextSession.user);
+        return;
+      }
+
+      loadCurrentUser({ forceProfileReload: event === 'SIGNED_IN' || event === 'USER_UPDATED' });
     });
 
     return () => data.subscription.unsubscribe();
@@ -103,18 +139,19 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = useCallback(async ({ email, password }) => {
     await authService.signIn(email, password);
-    await loadCurrentUser();
+    await loadCurrentUser({ forceProfileReload: true });
   }, [loadCurrentUser]);
 
   const resetPassword = useCallback((email) => authService.resetPassword(email), []);
 
   const updatePassword = useCallback(async (password) => {
     await authService.updatePassword(password);
-    await loadCurrentUser();
+    await loadCurrentUser({ forceProfileReload: true });
   }, [loadCurrentUser]);
 
   const logout = useCallback(async () => {
     await authService.signOut();
+    loadedUserIdRef.current = null;
     setUser(null);
     setProfile(null);
     setSession(null);
