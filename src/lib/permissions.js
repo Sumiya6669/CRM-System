@@ -110,3 +110,4 @@ export const canAccessRoute = (role, routePermissions = []) => {
 
   return hasAnyPermission(role, routePermissions);
 };
+ 
