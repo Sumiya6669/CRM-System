@@ -122,3 +122,4 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggle
     </>
   );
 }
+ 
