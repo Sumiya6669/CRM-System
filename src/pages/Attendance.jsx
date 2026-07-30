@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Topbar from '@/layouts/Topbar';
@@ -18,6 +18,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarCheck, CheckCircle2, Percent, Plus, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePagination } from '@/hooks/usePagination';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/roles';
+import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
+import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
+import { OWNER_RECORD_TYPES, ownerActionsService } from '@/services/ownerActionsService';
 
 export default function Attendance() {
   const [branchFilter, setBranchFilter] = useState('all');
@@ -28,7 +33,15 @@ export default function Attendance() {
   const [showMarkDialog, setShowMarkDialog] = useState(false);
   const [markForm, setMarkForm] = useState({ date: new Date().toISOString().split('T')[0], branch_id: '', group_id: '' });
   const [attendanceList, setAttendanceList] = useState([]);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [recordToDelete, setRecordToDelete] = useState(null);
   const qc = useQueryClient();
+  const { can, canEdit, canDelete } = usePermissions();
+
+  const canWriteAttendance = can(PERMISSIONS.ATTENDANCE_WRITE);
+  const canEditRecord = canWriteAttendance || canEdit;
+  const showActions = canEditRecord || canDelete;
 
   const { data: attendance = [], isLoading } = useQuery({
     queryKey: ['attendance'], queryFn: () => crm.entities.Attendance.list('-date', 500),
@@ -55,6 +68,54 @@ export default function Attendance() {
       toast.success('Посещаемость отмечена');
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => crm.entities.Attendance.update(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+      setEditingRecord(null);
+      setEditForm({});
+      toast.success('Отметка обновлена');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, reason }) => ownerActionsService.softDelete(OWNER_RECORD_TYPES.ATTENDANCE, id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+      setRecordToDelete(null);
+      toast.success('Отметка перемещена в корзину');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const openRecordEditor = (record) => {
+    setEditingRecord(record);
+    setEditForm({
+      date: record.date || '',
+      present: Boolean(record.present),
+      group_id: record.group_id || '',
+      comment: record.comment || '',
+    });
+  };
+
+  const handleUpdateRecord = () => {
+    const group = groups.find(g => g.id === editForm.group_id);
+    const coach = coaches.find(c => c.id === group?.coach_id);
+    updateMutation.mutate({
+      id: editingRecord.id,
+      data: {
+        date: editForm.date,
+        present: Boolean(editForm.present),
+        comment: editForm.comment || null,
+        group_id: editForm.group_id || null,
+        group_name: group?.name || null,
+        coach_id: coach?.id || null,
+        coach_name: coach?.full_name || group?.coach_name || null,
+      },
+    });
+  };
 
   const filtered = useMemo(() => {
     return attendance.filter(a => {
@@ -112,9 +173,11 @@ export default function Attendance() {
       <Topbar title="Посещаемость" />
       <div className="p-6 max-w-[1400px]">
         <PageHeader title="Посещаемость" subtitle={`${rate}% общая посещаемость · ${presentCount}/${totalCount} записей`}>
-          <Button onClick={() => setShowMarkDialog(true)} className="gap-1.5 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Отметить посещение
-          </Button>
+          {canWriteAttendance && (
+            <Button onClick={() => setShowMarkDialog(true)} className="gap-1.5 bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4" /> Отметить посещение
+            </Button>
+          )}
         </PageHeader>
 
         <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-3">
@@ -171,6 +234,7 @@ export default function Attendance() {
                   <TableHead className="text-xs font-semibold">Группа</TableHead>
                   <TableHead className="text-xs font-semibold">Статус</TableHead>
                   <TableHead className="text-xs font-semibold">Комментарий</TableHead>
+                  {showActions && <TableHead className="w-12"><span className="sr-only">Действия</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -182,6 +246,14 @@ export default function Attendance() {
                     <TableCell data-label="Группа" className="text-sm">{a.group_name || '—'}</TableCell>
                     <TableCell data-label="Статус"><StatusBadge status={a.present ? 'active' : 'archived'} label={a.present ? 'Присутствовал' : 'Пропуск'} /></TableCell>
                     <TableCell data-label="Комментарий" className="text-sm text-muted-foreground">{a.comment || ''}</TableCell>
+                    {showActions && (
+                      <TableCell data-label="Действия">
+                        <OwnerActionsMenu
+                          onEdit={canEditRecord ? () => openRecordEditor(a) : undefined}
+                          onDelete={canDelete ? () => setRecordToDelete(a) : undefined}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -247,6 +319,62 @@ export default function Attendance() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Редактирование отдельной отметки */}
+      <Dialog open={Boolean(editingRecord)} onOpenChange={(open) => { if (!open) { setEditingRecord(null); setEditForm({}); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Редактировать отметку</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-xl border border-border bg-muted/30 px-3 py-2">
+              <div className="text-sm font-medium">{editingRecord?.student_name}</div>
+              <div className="text-xs text-muted-foreground">{editingRecord?.branch_name || '—'}</div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Дата</Label>
+              <Input type="date" value={editForm.date || ''} onChange={e => setEditForm({ ...editForm, date: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Группа</Label>
+              <Select value={editForm.group_id || ''} onValueChange={v => setEditForm({ ...editForm, group_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Без группы" /></SelectTrigger>
+                <SelectContent>{groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Статус</Label>
+              <Select value={editForm.present ? 'present' : 'absent'} onValueChange={v => setEditForm({ ...editForm, present: v === 'present' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">Присутствовал</SelectItem>
+                  <SelectItem value="absent">Пропуск</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Комментарий</Label>
+              <Input value={editForm.comment || ''} onChange={e => setEditForm({ ...editForm, comment: e.target.value })} placeholder="Например: болел" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingRecord(null)}>Отмена</Button>
+            <Button onClick={handleUpdateRecord} disabled={!editForm.date || updateMutation.isPending} className="bg-primary hover:bg-primary/90">
+              {updateMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <OwnerDeleteDialog
+        open={Boolean(recordToDelete)}
+        onOpenChange={(open) => !open && setRecordToDelete(null)}
+        title={recordToDelete?.student_name || 'Отметка посещаемости'}
+        details={[
+          `Дата: ${formatDate(recordToDelete?.date) || '—'}`,
+          `Статус: ${recordToDelete?.present ? 'Присутствовал' : 'Пропуск'}`,
+        ]}
+        isPending={deleteMutation.isPending}
+        onConfirm={(reason) => deleteMutation.mutate({ id: recordToDelete.id, reason })}
+      />
     </div>
   );
 }
