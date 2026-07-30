@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Topbar from '@/layouts/Topbar';
@@ -14,11 +14,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Plus, Dumbbell, Users, CreditCard, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/roles';
+import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
+import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
+
+const emptyForm = { full_name: '', branch_id: '', phone: '', belt: '', hire_date: '', status: 'active' };
 
 export default function Coaches() {
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [form, setForm] = useState({});
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingCoach, setEditingCoach] = useState(null);
+  const [coachToDelete, setCoachToDelete] = useState(null);
+  const [form, setForm] = useState(emptyForm);
   const qc = useQueryClient();
+  const { can, canEdit, canDelete } = usePermissions();
+
+  const canWrite = can(PERMISSIONS.TRAINERS_WRITE);
+  const canEditCoach = canWrite || canEdit;
+  const showActions = canEditCoach || canDelete;
 
   const { data: coaches = [], isLoading } = useQuery({ queryKey: ['coaches'], queryFn: () => crm.entities.Coach.list() });
   const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: () => crm.entities.Branch.list() });
@@ -26,13 +39,52 @@ export default function Coaches() {
   const { data: groups = [] } = useQuery({ queryKey: ['groups'], queryFn: () => crm.entities.Group.list() });
   const { data: payments = [] } = useQuery({ queryKey: ['payments'], queryFn: () => crm.entities.Payment.list('-payment_date', 500) });
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: (data) => {
       const branch = branches.find(b => b.id === data.branch_id);
-      return crm.entities.Coach.create({ ...data, branch_name: branch?.name, status: 'active' });
+      const payload = { ...data, branch_name: branch?.name, status: data.status || 'active' };
+      return editingCoach
+        ? crm.entities.Coach.update(editingCoach.id, payload)
+        : crm.entities.Coach.create(payload);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['coaches'] }); setShowAddDialog(false); setForm({}); toast.success('Тренер добавлен'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coaches'] });
+      setShowDialog(false);
+      setEditingCoach(null);
+      setForm(emptyForm);
+      toast.success(editingCoach ? 'Данные тренера обновлены' : 'Тренер добавлен');
+    },
+    onError: (error) => toast.error(error.message),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => crm.entities.Coach.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['coaches'] });
+      setCoachToDelete(null);
+      toast.success('Тренер удалён');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const openNew = () => {
+    setEditingCoach(null);
+    setForm(emptyForm);
+    setShowDialog(true);
+  };
+
+  const openEditor = (coach) => {
+    setEditingCoach(coach);
+    setForm({
+      full_name: coach.full_name || '',
+      branch_id: coach.branch_id || '',
+      phone: coach.phone || '',
+      belt: coach.belt || '',
+      hire_date: coach.hire_date || '',
+      status: coach.status || 'active',
+    });
+    setShowDialog(true);
+  };
 
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -42,9 +94,11 @@ export default function Coaches() {
       <Topbar title="Тренеры" />
       <div className="p-6 max-w-[1400px]">
         <PageHeader title="Тренеры" subtitle={`${coaches.length} тренеров`}>
-          <Button onClick={() => setShowAddDialog(true)} className="gap-1.5 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Добавить тренера
-          </Button>
+          {canWrite && (
+            <Button onClick={openNew} className="gap-1.5 bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4" /> Добавить тренера
+            </Button>
+          )}
         </PageHeader>
 
         {isLoading ? (
@@ -75,6 +129,12 @@ export default function Coaches() {
                         <p className="text-xs text-muted-foreground">{coach.branch_name} · {coach.belt || ''}</p>
                         {coach.phone && <p className="text-xs text-muted-foreground">{coach.phone}</p>}
                       </div>
+                      {showActions && (
+                        <OwnerActionsMenu
+                          onEdit={canEditCoach ? () => openEditor(coach) : undefined}
+                          onDelete={canDelete ? () => setCoachToDelete(coach) : undefined}
+                        />
+                      )}
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       <div className="text-center p-2 rounded-lg bg-muted/40">
@@ -101,9 +161,9 @@ export default function Coaches() {
         )}
       </div>
 
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setEditingCoach(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Новый тренер</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingCoach ? 'Редактировать тренера' : 'Новый тренер'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5"><Label className="text-xs">ФИО *</Label><Input value={form.full_name || ''} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -120,13 +180,37 @@ export default function Coaches() {
               <div className="space-y-1.5"><Label className="text-xs">Пояс / Дан</Label><Input value={form.belt || ''} onChange={e => setForm({ ...form, belt: e.target.value })} placeholder="Чёрный 3 дан" /></div>
               <div className="space-y-1.5"><Label className="text-xs">Дата найма</Label><Input type="date" value={form.hire_date || ''} onChange={e => setForm({ ...form, hire_date: e.target.value })} /></div>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Статус</Label>
+              <Select value={form.status || 'active'} onValueChange={v => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Активен</SelectItem>
+                  <SelectItem value="inactive">Неактивен</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddDialog(false)}>Отмена</Button>
-            <Button onClick={() => createMutation.mutate(form)} disabled={!form.full_name || !form.branch_id} className="bg-primary hover:bg-primary/90">Сохранить</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Отмена</Button>
+            <Button onClick={() => saveMutation.mutate(form)} disabled={!form.full_name || !form.branch_id || saveMutation.isPending} className="bg-primary hover:bg-primary/90">
+              {saveMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OwnerDeleteDialog
+        open={Boolean(coachToDelete)}
+        onOpenChange={(open) => !open && setCoachToDelete(null)}
+        title={coachToDelete?.full_name || 'Тренер'}
+        details={[
+          `Филиал: ${coachToDelete?.branch_name || '—'}`,
+          `Телефон: ${coachToDelete?.phone || '—'}`,
+        ]}
+        isPending={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(coachToDelete.id)}
+      />
     </div>
   );
 }
