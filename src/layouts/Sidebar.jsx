@@ -31,19 +31,19 @@ const navItems = [
   { label: 'Склад', icon: Package, path: '/inventory', permission: PERMISSIONS.INVENTORY_READ },
   { label: 'Продажи', icon: ShoppingCart, path: '/sales', permission: PERMISSIONS.SALES_READ },
   { label: 'Посещаемость', icon: CalendarCheck, path: '/attendance', permission: PERMISSIONS.ATTENDANCE_READ },
-  { label: 'Расписание', icon: Calendar, path: '/schedule', permission: PERMISSIONS.ATTENDANCE_READ },
-  { label: 'Тренеры', icon: Dumbbell, path: '/coaches', permission: PERMISSIONS.STUDENTS_READ },
+  { label: 'Расписание', icon: Calendar, path: '/schedule', permission: PERMISSIONS.GROUPS_WRITE },
+  { label: 'Тренеры', icon: Dumbbell, path: '/coaches', permission: PERMISSIONS.TRAINERS_READ },
   { label: 'Отчёты', icon: BarChart3, path: '/reports', permission: PERMISSIONS.REPORTS_READ },
   { label: 'Журнал', icon: ScrollText, path: '/activity-log', permission: PERMISSIONS.AUDIT_LOGS_READ },
-  { label: 'Корзина', icon: Trash2, path: '/trash', permission: PERMISSIONS.DOCUMENTS_RESTORE, ownerOnly: true },
+  { label: 'Корзина', icon: Trash2, path: '/trash', permission: PERMISSIONS.DOCUMENTS_RESTORE },
   { label: 'Пользователи', icon: ShieldCheck, path: '/users', permission: PERMISSIONS.USERS_MANAGE },
   { label: 'Настройки', icon: Settings, path: '/settings', permission: PERMISSIONS.SETTINGS_READ },
 ];
 
 export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggle }) {
   const location = useLocation();
-  const { can, isOwner } = usePermissions();
-  const visibleNavItems = navItems.filter((item) => (!item.permission || can(item.permission)) && (!item.ownerOnly || isOwner));
+  const { can } = usePermissions();
+  const visibleNavItems = navItems.filter((item) => !item.permission || can(item.permission));
 
   return (
     <>
