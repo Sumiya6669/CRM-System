@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -37,7 +37,9 @@ export default function Sales() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const debouncedSearch = useDebounce(search, 250);
-  const { can, isOwner } = usePermissions();
+  const { can, canEdit, canDelete, canUnlock, canUseRecordActions } = usePermissions();
+  const canWriteSales = can(PERMISSIONS.SALES_WRITE);
+  const showRecordActions = canWriteSales || canUseRecordActions;
 
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ['sales'], queryFn: () => crm.entities.Sale.list('-created_date', 500),
@@ -199,7 +201,7 @@ export default function Sales() {
                   <TableHead className="text-xs font-semibold">Сумма</TableHead>
                   <TableHead className="text-xs font-semibold">Способ</TableHead>
                   <TableHead className="text-xs font-semibold">Документ</TableHead>
-                  {isOwner && <TableHead className="w-12"><span className="sr-only">Owner Actions</span></TableHead>}
+                  {showRecordActions && <TableHead className="w-12"><span className="sr-only">Действия</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -213,15 +215,15 @@ export default function Sales() {
                     <TableCell data-label="Сумма" className="text-sm font-semibold">{formatMoney(s.total)}</TableCell>
                     <TableCell data-label="Способ" className="text-sm">{PAYMENT_METHOD_LABELS[s.payment_method] || s.payment_method}</TableCell>
                     <TableCell data-label="Документ"><DocumentLockBadge document={s} onUnlock={can(PERMISSIONS.DOCUMENTS_UNLOCK) ? () => unlockMutation.mutate(s.id) : undefined} isUnlocking={unlockMutation.isPending} /></TableCell>
-                    {isOwner && (
-                      <TableCell data-label="Owner Actions">
+                    {showRecordActions && (
+                      <TableCell data-label="Действия">
                         <OwnerActionsMenu
-                          onEdit={() => openSaleEditor(s)}
-                          onDelete={() => setSaleToDelete(s)}
-                          onUnlock={s.is_locked ? () => ownerDocumentMutation.mutate({ id: s.id, action: 'unlock', reason: 'Разблокировка продажи Owner' }) : undefined}
-                          onReopen={() => ownerDocumentMutation.mutate({ id: s.id, action: 'reopen', reason: 'Повторное открытие продажи Owner' })}
-                          onRepost={() => ownerDocumentMutation.mutate({ id: s.id, action: 'repost', reason: 'Перепроведение продажи Owner' })}
-                          onRecalculate={() => ownerDocumentMutation.mutate({ id: s.id, action: 'recalculate', reason: 'Пересчёт продажи Owner' })}
+                          onEdit={(canWriteSales || canEdit) && (!s.is_locked || canUnlock) ? () => openSaleEditor(s) : undefined}
+                          onDelete={canDelete ? () => setSaleToDelete(s) : undefined}
+                          onUnlock={canUnlock && s.is_locked ? () => ownerDocumentMutation.mutate({ id: s.id, action: 'unlock', reason: 'Разблокировка продажи' }) : undefined}
+                          onReopen={canUnlock ? () => ownerDocumentMutation.mutate({ id: s.id, action: 'reopen', reason: 'Повторное открытие продажи' }) : undefined}
+                          onRepost={canUnlock ? () => ownerDocumentMutation.mutate({ id: s.id, action: 'repost', reason: 'Перепроведение продажи' }) : undefined}
+                          onRecalculate={canUnlock ? () => ownerDocumentMutation.mutate({ id: s.id, action: 'recalculate', reason: 'Пересчёт продажи' }) : undefined}
                           onViewHistory={() => navigate(`/activity-log?entity_type=sales&entity_id=${s.id}`)}
                         />
                       </TableCell>
