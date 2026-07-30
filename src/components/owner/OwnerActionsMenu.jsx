@@ -40,9 +40,9 @@ export default function OwnerActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8" title="Owner Actions">
+        <Button variant="ghost" size="icon" className="h-8 w-8" title="Действия с записью">
           <MoreHorizontal className="h-4 w-4" />
-          <span className="sr-only">Owner Actions</span>
+          <span className="sr-only">Действия с записью</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
