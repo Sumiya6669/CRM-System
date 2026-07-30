@@ -17,16 +17,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { crm } from '@/services/crm';
 import { adminUsersService } from '@/services/adminUsersService';
 import { formatDate } from '@/lib/constants';
+import { OWNER_POWER_FLAGS, OWNER_POWER_OPTIONS, PERMISSION_MODULES } from '@/constants/roles';
 
 const emptyCreateForm = { slot_number: '', full_name: '', email: '', password: '', branch_id: '' };
-const permissionOptions = [
-  { key: 'students', label: 'Ученики' },
-  { key: 'payments', label: 'Оплаты' },
-  { key: 'inventory', label: 'Склад' },
-  { key: 'sales', label: 'Продажи' },
-  { key: 'attendance', label: 'Посещаемость' },
-  { key: 'reports', label: 'Отчеты' },
-];
+const permissionOptions = PERMISSION_MODULES;
+
+const summarizeAccess = (permissions = {}) => {
+  if (permissions[OWNER_POWER_FLAGS.FULL_ACCESS]) {
+    return 'Полный доступ';
+  }
+  const granted = OWNER_POWER_OPTIONS
+    .filter((option) => option.key !== OWNER_POWER_FLAGS.FULL_ACCESS && permissions[option.key])
+    .length;
+  return granted ? `Расширенный (${granted})` : 'Базовый';
+};
 
 export default function UserManagement() {
   const queryClient = useQueryClient();
@@ -152,6 +156,7 @@ export default function UserManagement() {
                     <TableHead className="text-xs font-semibold">Пользователь</TableHead>
                     <TableHead className="text-xs font-semibold">Роль</TableHead>
                     <TableHead className="text-xs font-semibold">Филиал</TableHead>
+                    <TableHead className="text-xs font-semibold">Права</TableHead>
                     <TableHead className="text-xs font-semibold">Последний вход</TableHead>
                     <TableHead className="text-xs font-semibold">Статус</TableHead>
                     <TableHead className="text-right text-xs font-semibold">Действия</TableHead>
@@ -194,6 +199,13 @@ export default function UserManagement() {
                                 </Button>
                               )}
                             </div>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell data-label="Права" className="text-sm">
+                          {profile ? (
+                            <span className={profile.permissions?.[OWNER_POWER_FLAGS.FULL_ACCESS] ? 'font-semibold text-primary' : ''}>
+                              {summarizeAccess(profile.permissions)}
+                            </span>
                           ) : '—'}
                         </TableCell>
                         <TableCell data-label="Последний вход" className="text-sm">{formatDate(profile?.last_login_at || appUser?.last_sign_in_at) || '—'}</TableCell>
@@ -318,6 +330,7 @@ export default function UserManagement() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs">Операционные модули</Label>
+              <p className="text-xs text-muted-foreground">Определяют, какие разделы доступны администратору.</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {permissionOptions.map((option) => (
                   <label key={option.key} className="flex items-center gap-2 text-sm">
@@ -331,6 +344,42 @@ export default function UserManagement() {
                     {option.label}
                   </label>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 rounded-xl border border-border p-3">
+              <Label className="text-xs">Права уровня Owner</Label>
+              <p className="text-xs text-muted-foreground">
+                Выдаются по выбору. «Полный доступ» включает все действия сразу — администратор
+                сможет редактировать, удалять и восстанавливать записи так же, как Owner.
+                Управление учётными записями остаётся только у Owner.
+              </p>
+              <div className="space-y-2 pt-1">
+                {OWNER_POWER_OPTIONS.map((option) => {
+                  const isFullAccessOption = option.key === OWNER_POWER_FLAGS.FULL_ACCESS;
+                  const fullAccessEnabled = Boolean(accessForm.permissions[OWNER_POWER_FLAGS.FULL_ACCESS]);
+                  const checked = isFullAccessOption
+                    ? fullAccessEnabled
+                    : fullAccessEnabled || Boolean(accessForm.permissions[option.key]);
+
+                  return (
+                    <label key={option.key} className="flex items-start gap-2 text-sm">
+                      <Checkbox
+                        className="mt-0.5"
+                        checked={checked}
+                        disabled={!isFullAccessOption && fullAccessEnabled}
+                        onCheckedChange={(value) => setAccessForm((current) => ({
+                          ...current,
+                          permissions: { ...current.permissions, [option.key]: Boolean(value) },
+                        }))}
+                      />
+                      <span>
+                        <span className={isFullAccessOption ? 'font-semibold' : ''}>{option.label}</span>
+                        <span className="block text-xs text-muted-foreground">{option.description}</span>
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
