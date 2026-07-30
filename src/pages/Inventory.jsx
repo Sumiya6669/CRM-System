@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Package, Search, ArrowLeftRight } from 'lucide-react';
+import { Plus, Package, Search, ArrowLeftRight, Boxes } from 'lucide-react';
 import { toast } from 'sonner';
 import BulkTransferDialog from '@/components/inventory/BulkTransferDialog';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -24,42 +24,104 @@ import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
 import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
 import { OWNER_RECORD_TYPES, ownerActionsService } from '@/services/ownerActionsService';
 
+const emptyForm = { name: '', sku: '', category: '', size: '', cost_price: 0, sell_price: 0, min_stock: 0 };
+
 export default function Inventory() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [showTransfer, setShowTransfer] = useState(false);
   const [showBulkTransfer, setShowBulkTransfer] = useState(false);
-  const [form, setForm] = useState({});
+  const [form, setForm] = useState(emptyForm);
+  const [stockForm, setStockForm] = useState({});
   const [editingProduct, setEditingProduct] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
-  const [transferForm, setTransferForm] = useState({});
+  const [stockProduct, setStockProduct] = useState(null);
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { can, isOwner, canEdit, canDelete, canArchive, canUseRecordActions } = usePermissions();
-  const canWriteInventory = can(PERMISSIONS.INVENTORY_WRITE);
-  const showRecordActions = canWriteInventory || canUseRecordActions;
+  const { can, canEdit, canDelete, canArchive } = usePermissions();
   const debouncedSearch = useDebounce(search, 250);
 
+  const canWriteInventory = can(PERMISSIONS.INVENTORY_WRITE);
+  const canEditProduct = canWriteInventory || canEdit;
+  const showRecordActions = canEditProduct || canDelete || canArchive;
+  const showArchived = canArchive || canDelete;
+
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ['products', { includeArchived: isOwner }],
-    queryFn: () => crm.entities.Product.list(undefined, undefined, { includeArchived: isOwner }),
+    queryKey: ['products', { includeArchived: showArchived }],
+    queryFn: () => crm.entities.Product.list(undefined, undefined, { includeArchived: showArchived }),
   });
   const { data: stockItems = [] } = useQuery({
-    queryKey: ['stockItems'], queryFn: () => crm.entities.StockItem.list('-created_date', 500),
+    queryKey: ['stockItems'], queryFn: () => crm.entities.StockItem.list('-created_date', 1000),
   });
   const { data: branches = [] } = useQuery({
     queryKey: ['branches'], queryFn: () => crm.entities.Branch.list(),
   });
 
+  /** Записывает остатки по филиалам: обновляет существующие строки, создаёт недостающие. */
+  const persistStock = async (product, quantities) => {
+    const entries = Object.entries(quantities || {});
+    for (const [branchId, rawQuantity] of entries) {
+      const quantity = Math.max(0, Number(rawQuantity) || 0);
+      const branch = branches.find(b => b.id === branchId);
+      const existing = stockItems.find(si => si.product_id === product.id && si.branch_id === branchId);
+
+      if (existing) {
+        if ((existing.quantity || 0) !== quantity) {
+          await crm.entities.StockItem.update(existing.id, {
+            quantity,
+            product_name: product.name,
+            branch_name: branch?.name,
+          });
+        }
+      } else if (quantity > 0) {
+        await crm.entities.StockItem.create({
+          product_id: product.id,
+          product_name: product.name,
+          branch_id: branchId,
+          branch_name: branch?.name,
+          quantity,
+        });
+      }
+    }
+  };
+
   const saveProductMutation = useMutation({
-    mutationFn: (data) => editingProduct ? crm.entities.Product.update(editingProduct.id, data) : crm.entities.Product.create(data),
+    mutationFn: async (data) => {
+      const payload = {
+        name: data.name,
+        sku: data.sku || null,
+        category: data.category,
+        size: data.size || null,
+        cost_price: Number(data.cost_price) || 0,
+        sell_price: Number(data.sell_price) || 0,
+        min_stock: Math.max(0, Number(data.min_stock) || 0),
+      };
+      const product = editingProduct
+        ? await crm.entities.Product.update(editingProduct.id, payload)
+        : await crm.entities.Product.create({ ...payload, status: 'active' });
+
+      await persistStock(product, stockForm);
+      return product;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['stockItems'] });
       setShowAddProduct(false);
       setEditingProduct(null);
-      setForm({});
+      setForm(emptyForm);
+      setStockForm({});
       toast.success(editingProduct ? 'Товар обновлён' : 'Товар добавлен');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const stockOnlyMutation = useMutation({
+    mutationFn: async () => persistStock(stockProduct, stockForm),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['stockItems'] });
+      setStockProduct(null);
+      setStockForm({});
+      toast.success('Остатки обновлены');
     },
     onError: (error) => toast.error(error.message),
   });
@@ -76,40 +138,6 @@ export default function Inventory() {
       }[variables.action] || 'Действие выполнено');
     },
     onError: (error) => toast.error(error.message),
-  });
-
-  const transferMutation = useMutation({
-    mutationFn: async (data) => {
-      const product = products.find(p => p.id === data.product_id);
-      const fromBranch = branches.find(b => b.id === data.from_branch_id);
-      const toBranch = branches.find(b => b.id === data.to_branch_id);
-      // Find or create stock items
-      let fromStock = stockItems.find(si => si.product_id === data.product_id && si.branch_id === data.from_branch_id);
-      let toStock = stockItems.find(si => si.product_id === data.product_id && si.branch_id === data.to_branch_id);
-
-      if (fromStock) await crm.entities.StockItem.update(fromStock.id, { quantity: (fromStock.quantity || 0) - data.quantity });
-      if (toStock) {
-        await crm.entities.StockItem.update(toStock.id, { quantity: (toStock.quantity || 0) + data.quantity });
-      } else {
-        await crm.entities.StockItem.create({ product_id: data.product_id, product_name: product?.name, branch_id: data.to_branch_id, branch_name: toBranch?.name, quantity: data.quantity });
-      }
-
-      await crm.entities.StockTransfer.create({
-        product_id: data.product_id, product_name: product?.name,
-        from_branch_id: data.from_branch_id, from_branch_name: fromBranch?.name,
-        to_branch_id: data.to_branch_id, to_branch_name: toBranch?.name,
-        quantity: data.quantity, reason: data.reason,
-        transfer_date: new Date().toISOString().split('T')[0],
-        document_status: 'posted',
-      });
-
-      await crm.entities.ActivityLog.create({
-        action_type: 'stock_transferred',
-        description: `${product?.name} (${data.quantity} шт.) из ${fromBranch?.name} в ${toBranch?.name}`,
-        entity_type: 'StockTransfer', branch_name: fromBranch?.name, quantity: data.quantity,
-      });
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['stockItems'] }); setShowTransfer(false); setTransferForm({}); toast.success('Товар перемещён'); },
   });
 
   const productsWithStock = useMemo(() => {
@@ -130,24 +158,70 @@ export default function Inventory() {
   });
   const pagination = usePagination(filtered, 50);
   const activeProducts = products.filter((product) => !product.is_archived);
+
+  const buildStockForm = (productId) => {
+    return branches.reduce((result, branch) => {
+      const item = stockItems.find(si => si.product_id === productId && si.branch_id === branch.id);
+      result[branch.id] = item?.quantity ?? 0;
+      return result;
+    }, {});
+  };
+
   const openNewProduct = () => {
     setEditingProduct(null);
-    setForm({});
+    setForm(emptyForm);
+    setStockForm(branches.reduce((result, branch) => ({ ...result, [branch.id]: 0 }), {}));
     setShowAddProduct(true);
   };
+
   const openProductEditor = (product) => {
     setEditingProduct(product);
     setForm({
-      name: product.name,
-      sku: product.sku,
-      category: product.category,
-      size: product.size,
-      cost_price: product.cost_price,
-      sell_price: product.sell_price,
-      min_stock: product.min_stock,
+      name: product.name || '',
+      sku: product.sku || '',
+      category: product.category || '',
+      size: product.size || '',
+      cost_price: product.cost_price ?? 0,
+      sell_price: product.sell_price ?? 0,
+      min_stock: product.min_stock ?? 0,
     });
+    setStockForm(buildStockForm(product.id));
     setShowAddProduct(true);
   };
+
+  const openStockEditor = (product) => {
+    setStockProduct(product);
+    setStockForm(buildStockForm(product.id));
+  };
+
+  const stockTotal = Object.values(stockForm).reduce((sum, value) => sum + (Number(value) || 0), 0);
+
+  const renderStockInputs = () => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">Остатки по филиалам</Label>
+        <span className="text-xs text-muted-foreground">Итого: {stockTotal} шт.</span>
+      </div>
+      {branches.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Сначала создайте филиалы в разделе «Филиалы».</p>
+      ) : (
+        <div className="space-y-2 rounded-xl border border-border p-3">
+          {branches.map(branch => (
+            <div key={branch.id} className="flex items-center justify-between gap-3">
+              <span className="text-sm">{branch.name}</span>
+              <Input
+                type="number"
+                min="0"
+                className="h-8 w-28"
+                value={stockForm[branch.id] ?? 0}
+                onChange={e => setStockForm({ ...stockForm, [branch.id]: Math.max(0, Number(e.target.value) || 0) })}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div>
@@ -210,7 +284,18 @@ export default function Inventory() {
                     <TableCell data-label="Размер" className="text-sm">{p.size || '—'}</TableCell>
                     <TableCell data-label="Цена" className="text-sm font-medium">{formatMoney(p.sell_price)}</TableCell>
                     <TableCell data-label="Общий остаток">
-                      <span className={`text-sm font-semibold ${p.isLow ? 'text-red-600' : ''}`}>{p.totalStock}</span>
+                      {canEditProduct ? (
+                        <button
+                          type="button"
+                          onClick={() => openStockEditor(p)}
+                          className="text-sm font-semibold underline decoration-dotted underline-offset-4 hover:text-primary"
+                          title="Изменить остатки по филиалам"
+                        >
+                          <span className={p.isLow ? 'text-red-600' : ''}>{p.totalStock}</span>
+                        </button>
+                      ) : (
+                        <span className={`text-sm font-semibold ${p.isLow ? 'text-red-600' : ''}`}>{p.totalStock}</span>
+                      )}
                       {p.isLow && <span className="ml-1 text-xs text-red-500">↓</span>}
                     </TableCell>
                     {p.branchStocks.map(bs => (
@@ -219,7 +304,8 @@ export default function Inventory() {
                     {showRecordActions && (
                       <TableCell data-label="Действия">
                         <OwnerActionsMenu
-                          onEdit={canWriteInventory || canEdit ? () => openProductEditor(p) : undefined}
+                          onEdit={canEditProduct ? () => openProductEditor(p) : undefined}
+                          onEditStock={canEditProduct ? () => openStockEditor(p) : undefined}
                           onDelete={canDelete ? () => setProductToDelete(p) : undefined}
                           onArchive={canArchive && !p.is_archived ? () => ownerProductMutation.mutate({ id: p.id, action: 'archive', reason: 'Архивация товара' }) : undefined}
                           onUnarchive={canArchive && p.is_archived ? () => ownerProductMutation.mutate({ id: p.id, action: 'unarchive', reason: 'Возврат товара из архива' }) : undefined}
@@ -236,9 +322,9 @@ export default function Inventory() {
         )}
       </div>
 
-      {/* Add product dialog */}
-      <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
-        <DialogContent className="max-w-lg">
+      {/* Создание и редактирование товара */}
+      <Dialog open={showAddProduct} onOpenChange={(open) => { setShowAddProduct(open); if (!open) { setEditingProduct(null); setStockForm({}); } }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingProduct ? 'Редактировать товар' : 'Новый товар'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-3">
@@ -256,15 +342,35 @@ export default function Inventory() {
               <div className="space-y-1.5"><Label className="text-xs">Размер</Label><Input value={form.size || ''} onChange={e => setForm({ ...form, size: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">Себестоимость</Label><Input type="number" min="0" value={form.cost_price ?? ''} onChange={e => setForm({ ...form, cost_price: Number(e.target.value) })} /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Цена продажи *</Label><Input type="number" min="0" value={form.sell_price ?? ''} onChange={e => setForm({ ...form, sell_price: Number(e.target.value) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Себестоимость</Label><Input type="number" min="0" value={form.cost_price ?? 0} onChange={e => setForm({ ...form, cost_price: Math.max(0, Number(e.target.value) || 0) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Цена продажи *</Label><Input type="number" min="0" value={form.sell_price ?? 0} onChange={e => setForm({ ...form, sell_price: Math.max(0, Number(e.target.value) || 0) })} /></div>
               <div className="space-y-1.5"><Label className="text-xs">Мин. остаток</Label><Input type="number" min="0" value={form.min_stock ?? 0} onChange={e => setForm({ ...form, min_stock: Math.max(0, Number(e.target.value) || 0) })} /></div>
             </div>
+
+            {renderStockInputs()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddProduct(false)}>Отмена</Button>
-            <Button onClick={() => saveProductMutation.mutate(form)} disabled={!form.name || !form.category || !form.sell_price || saveProductMutation.isPending} className="bg-primary hover:bg-primary/90">
+            <Button onClick={() => saveProductMutation.mutate(form)} disabled={!form.name || !form.category || saveProductMutation.isPending} className="bg-primary hover:bg-primary/90">
               {saveProductMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Быстрое изменение остатков */}
+      <Dialog open={Boolean(stockProduct)} onOpenChange={(open) => { if (!open) { setStockProduct(null); setStockForm({}); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Boxes className="h-4 w-4 text-primary" /> Остатки: {stockProduct?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">{renderStockInputs()}</div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStockProduct(null)}>Отмена</Button>
+            <Button onClick={() => stockOnlyMutation.mutate()} disabled={stockOnlyMutation.isPending || branches.length === 0} className="bg-primary hover:bg-primary/90">
+              {stockOnlyMutation.isPending ? 'Сохранение...' : 'Сохранить остатки'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -289,44 +395,6 @@ export default function Inventory() {
         branches={branches}
         stockItems={stockItems}
       />
-
-      {/* Transfer dialog (legacy single) */}
-      <Dialog open={showTransfer} onOpenChange={setShowTransfer}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Перемещение товара</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Товар *</Label>
-              <Select value={transferForm.product_id || ''} onValueChange={v => setTransferForm({ ...transferForm, product_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Выберите товар" /></SelectTrigger>
-                <SelectContent>{activeProducts.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Из филиала *</Label>
-                <Select value={transferForm.from_branch_id || ''} onValueChange={v => setTransferForm({ ...transferForm, from_branch_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Откуда" /></SelectTrigger>
-                  <SelectContent>{branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">В филиал *</Label>
-                <Select value={transferForm.to_branch_id || ''} onValueChange={v => setTransferForm({ ...transferForm, to_branch_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="Куда" /></SelectTrigger>
-                  <SelectContent>{branches.filter(b => b.id !== transferForm.from_branch_id).map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5"><Label className="text-xs">Количество *</Label><Input type="number" value={transferForm.quantity || ''} onChange={e => setTransferForm({ ...transferForm, quantity: Number(e.target.value) })} /></div>
-            <div className="space-y-1.5"><Label className="text-xs">Причина</Label><Input value={transferForm.reason || ''} onChange={e => setTransferForm({ ...transferForm, reason: e.target.value })} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTransfer(false)}>Отмена</Button>
-            <Button onClick={() => transferMutation.mutate(transferForm)} disabled={!transferForm.product_id || !transferForm.from_branch_id || !transferForm.to_branch_id || !transferForm.quantity} className="bg-primary hover:bg-primary/90">Переместить</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
