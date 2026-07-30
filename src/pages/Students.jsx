@@ -25,6 +25,8 @@ import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
 import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
 import { OWNER_RECORD_TYPES, ownerActionsService } from '@/services/ownerActionsService';
 
+const NONE_VALUE = '__none__';
+
 export default function Students() {
   const [search, setSearch] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -130,10 +132,22 @@ export default function Students() {
     const group = groups.find(g => g.id === form.group_id);
     const coach = coaches.find(c => c.id === form.coach_id);
     const payload = {
-      ...form,
-      branch_name: branch?.name || '',
-      group_name: group?.name || '',
-      coach_name: coach?.full_name || '',
+      full_name: form.full_name,
+      birth_date: form.birth_date || null,
+      gender: form.gender || null,
+      branch_id: form.branch_id || null,
+      group_id: form.group_id || null,
+      coach_id: form.coach_id || null,
+      parent_phone: form.parent_phone || null,
+      parent_name: form.parent_name || null,
+      start_date: form.start_date || null,
+      notes: form.notes || null,
+      // колонки NOT NULL — подставляем значения по умолчанию
+      belt: form.belt || 'white',
+      status: form.status || 'active',
+      branch_name: branch?.name || null,
+      group_name: group?.name || null,
+      coach_name: coach?.full_name || null,
     };
 
     if (editingStudent) {
@@ -144,7 +158,6 @@ export default function Students() {
     saveMutation.mutate({
       ...payload,
       student_id: 'TKD-' + String(students.length + 1).padStart(4, '0'),
-      status: 'active',
       debt: 0,
     });
   };
@@ -287,18 +300,20 @@ export default function Students() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">Группа</Label>
-                <Select value={form.group_id || ''} onValueChange={v => setForm({ ...form, group_id: v })}>
+                <Select value={form.group_id || NONE_VALUE} onValueChange={v => setForm({ ...form, group_id: v === NONE_VALUE ? '' : v })}>
                   <SelectTrigger><SelectValue placeholder="Группа" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={NONE_VALUE}>Без группы</SelectItem>
                     {groups.filter(g => !form.branch_id || g.branch_id === form.branch_id).map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Тренер</Label>
-                <Select value={form.coach_id || ''} onValueChange={v => setForm({ ...form, coach_id: v })}>
+                <Select value={form.coach_id || NONE_VALUE} onValueChange={v => setForm({ ...form, coach_id: v === NONE_VALUE ? '' : v })}>
                   <SelectTrigger><SelectValue placeholder="Тренер" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={NONE_VALUE}>Без тренера</SelectItem>
                     {coaches.filter(c => !form.branch_id || c.branch_id === form.branch_id).map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
