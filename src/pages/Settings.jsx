@@ -108,7 +108,7 @@ export default function Settings() {
   const [savedOrganizationForm, setSavedOrganizationForm] = useState(DEFAULT_ORGANIZATION_FORM);
   const qc = useQueryClient();
   const { user } = useAuth();
-  const { isOwner } = usePermissions();
+  const { isOwner, canUseRecordActions } = usePermissions();
   const organizationId = user?.organization_id;
 
   const { data: branches = [] } = useQuery({
@@ -304,7 +304,7 @@ export default function Settings() {
                       <TableHead className="text-xs">Адрес</TableHead>
                       <TableHead className="text-xs">Телефон</TableHead>
                       <TableHead className="text-xs">Статус</TableHead>
-                      {isOwner && <TableHead className="w-12"><span className="sr-only">Действия</span></TableHead>}
+                      {(isOwner || canUseRecordActions) && <TableHead className="w-12"><span className="sr-only">Действия</span></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -315,7 +315,7 @@ export default function Settings() {
                         <TableCell data-label="Адрес" className="text-sm">{b.address || '—'}</TableCell>
                         <TableCell data-label="Телефон" className="text-sm">{b.phone || '—'}</TableCell>
                         <TableCell data-label="Статус"><StatusBadge status={b.status} label={b.status === 'active' ? 'Активен' : 'Неактивен'} /></TableCell>
-                        {isOwner && (
+                        {(isOwner || canUseRecordActions) && (
                           <TableCell data-label="Действия">
                             <OwnerActionsMenu
                               onEdit={() => openBranchEditor(b)}
