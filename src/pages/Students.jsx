@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Topbar from '@/layouts/Topbar';
@@ -19,6 +19,11 @@ import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePagination } from '@/hooks/usePagination';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/roles';
+import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
+import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
+import { OWNER_RECORD_TYPES, ownerActionsService } from '@/services/ownerActionsService';
 
 export default function Students() {
   const [search, setSearch] = useState('');
@@ -27,8 +32,15 @@ export default function Students() {
   const [statusFilter, setStatusFilter] = useState('active');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [form, setForm] = useState({});
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [studentToDelete, setStudentToDelete] = useState(null);
   const qc = useQueryClient();
   const debouncedSearch = useDebounce(search, 250);
+  const { can, canEdit, canDelete } = usePermissions();
+
+  const canWriteStudents = can(PERMISSIONS.STUDENTS_WRITE);
+  const canEditStudent = canWriteStudents || canEdit;
+  const showActions = canEditStudent || canDelete;
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['students'],
@@ -47,14 +59,28 @@ export default function Students() {
     queryFn: () => crm.entities.Coach.list(),
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data) => crm.entities.Student.create(data),
+  const saveMutation = useMutation({
+    mutationFn: (data) => editingStudent
+      ? crm.entities.Student.update(editingStudent.id, data)
+      : crm.entities.Student.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['students'] });
       setShowAddDialog(false);
+      setEditingStudent(null);
       setForm({});
-      toast.success('Ученик добавлен');
+      toast.success(editingStudent ? 'Данные ученика обновлены' : 'Ученик добавлен');
     },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: ({ id, reason }) => ownerActionsService.softDelete(OWNER_RECORD_TYPES.STUDENT, id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['students'] });
+      setStudentToDelete(null);
+      toast.success('Ученик перемещён в корзину');
+    },
+    onError: (error) => toast.error(error.message),
   });
 
   const filtered = useMemo(() => {
@@ -74,16 +100,50 @@ export default function Students() {
 
   const pagination = usePagination(filtered, 50);
 
+  const openNewStudent = () => {
+    setEditingStudent(null);
+    setForm({});
+    setShowAddDialog(true);
+  };
+
+  const openStudentEditor = (student) => {
+    setEditingStudent(student);
+    setForm({
+      full_name: student.full_name || '',
+      birth_date: student.birth_date || '',
+      gender: student.gender || '',
+      branch_id: student.branch_id || '',
+      group_id: student.group_id || '',
+      coach_id: student.coach_id || '',
+      parent_phone: student.parent_phone || '',
+      parent_name: student.parent_name || '',
+      start_date: student.start_date || '',
+      belt: student.belt || '',
+      status: student.status || 'active',
+      notes: student.notes || '',
+    });
+    setShowAddDialog(true);
+  };
+
   const handleSave = () => {
     const branch = branches.find(b => b.id === form.branch_id);
     const group = groups.find(g => g.id === form.group_id);
     const coach = coaches.find(c => c.id === form.coach_id);
-    createMutation.mutate({
+    const payload = {
       ...form,
-      student_id: 'TKD-' + String(students.length + 1).padStart(4, '0'),
       branch_name: branch?.name || '',
       group_name: group?.name || '',
       coach_name: coach?.full_name || '',
+    };
+
+    if (editingStudent) {
+      saveMutation.mutate(payload);
+      return;
+    }
+
+    saveMutation.mutate({
+      ...payload,
+      student_id: 'TKD-' + String(students.length + 1).padStart(4, '0'),
       status: 'active',
       debt: 0,
     });
@@ -94,9 +154,11 @@ export default function Students() {
       <Topbar title="Ученики" />
       <div className="p-6 max-w-[1400px]">
         <PageHeader title="База учеников" subtitle={`${filtered.length} из ${students.length} учеников`}>
-          <Button onClick={() => setShowAddDialog(true)} className="gap-1.5 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Добавить ученика
-          </Button>
+          {canWriteStudents && (
+            <Button onClick={openNewStudent} className="gap-1.5 bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4" /> Добавить ученика
+            </Button>
+          )}
         </PageHeader>
 
         {/* Filters */}
@@ -148,6 +210,7 @@ export default function Students() {
                   <TableHead className="text-xs font-semibold">Долг</TableHead>
                   <TableHead className="text-xs font-semibold">Статус</TableHead>
                   <TableHead className="text-xs font-semibold w-10"></TableHead>
+                  {showActions && <TableHead className="w-12"><span className="sr-only">Действия</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,6 +233,14 @@ export default function Students() {
                         <Button variant="ghost" size="icon" className="h-7 w-7"><Eye className="w-3.5 h-3.5" /></Button>
                       </Link>
                     </TableCell>
+                    {showActions && (
+                      <TableCell data-label="Действия">
+                        <OwnerActionsMenu
+                          onEdit={canEditStudent ? () => openStudentEditor(s) : undefined}
+                          onDelete={canDelete ? () => setStudentToDelete(s) : undefined}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -182,7 +253,7 @@ export default function Students() {
       {/* Add dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Новый ученик</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingStudent ? 'Редактировать ученика' : 'Новый ученик'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label className="text-xs">ФИО *</Label>
@@ -247,6 +318,26 @@ export default function Students() {
               <Label className="text-xs">Дата начала занятий</Label>
               <Input type="date" value={form.start_date || ''} onChange={e => setForm({ ...form, start_date: e.target.value })} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Пояс</Label>
+                <Select value={form.belt || ''} onValueChange={v => setForm({ ...form, belt: v })}>
+                  <SelectTrigger><SelectValue placeholder="Выберите пояс" /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(BELT_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Статус</Label>
+                <Select value={form.status || 'active'} onValueChange={v => setForm({ ...form, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Комментарий</Label>
               <Textarea value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
@@ -254,12 +345,25 @@ export default function Students() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>Отмена</Button>
-            <Button onClick={handleSave} disabled={!form.full_name || !form.branch_id || createMutation.isPending} className="bg-primary hover:bg-primary/90">
-              {createMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+            <Button onClick={handleSave} disabled={!form.full_name || !form.branch_id || saveMutation.isPending} className="bg-primary hover:bg-primary/90">
+              {saveMutation.isPending ? 'Сохранение...' : 'Сохранить'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OwnerDeleteDialog
+        open={Boolean(studentToDelete)}
+        onOpenChange={(open) => !open && setStudentToDelete(null)}
+        title={studentToDelete?.full_name || 'Ученик'}
+        details={[
+          `ID: ${studentToDelete?.student_id || '—'}`,
+          `Филиал: ${studentToDelete?.branch_name || '—'}`,
+          `Долг: ${formatMoney(studentToDelete?.debt || 0)}`,
+        ]}
+        isPending={deleteMutation.isPending}
+        onConfirm={(reason) => deleteMutation.mutate({ id: studentToDelete.id, reason })}
+      />
     </div>
   );
 }
