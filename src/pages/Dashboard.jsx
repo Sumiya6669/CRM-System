@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { crm } from '@/services/crm';
 import { useQuery } from '@tanstack/react-query';
 import Topbar from '@/layouts/Topbar';
@@ -66,7 +66,7 @@ export default function Dashboard() {
 
   const lowStockProducts = products.filter(p => {
     const totalStock = stockItems.filter(si => si.product_id === p.id).reduce((s, si) => s + (si.quantity || 0), 0);
-    return totalStock <= (p.min_stock || 5);
+    return totalStock <= (p.min_stock ?? 0);
   });
 
   const monthSalesTotal = sales
