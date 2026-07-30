@@ -1,5 +1,6 @@
 import {
   Archive,
+  Boxes,
   Calculator,
   Edit3,
   History,
@@ -27,6 +28,7 @@ const MenuItem = ({ icon: Icon, children, ...props }) => (
 
 export default function OwnerActionsMenu({
   onEdit,
+  onEditStock,
   onDelete,
   onRestore,
   onUnlock,
@@ -47,6 +49,7 @@ export default function OwnerActionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">
         {onEdit && <MenuItem icon={Edit3} onSelect={onEdit}>Редактировать</MenuItem>}
+        {onEditStock && <MenuItem icon={Boxes} onSelect={onEditStock}>Остатки по филиалам</MenuItem>}
         {onRestore && <MenuItem icon={RotateCcw} onSelect={onRestore}>Восстановить</MenuItem>}
         {onUnlock && <MenuItem icon={LockOpen} onSelect={onUnlock}>Разблокировать</MenuItem>}
         {onReopen && <MenuItem icon={RefreshCcw} onSelect={onReopen}>Открыть повторно</MenuItem>}
