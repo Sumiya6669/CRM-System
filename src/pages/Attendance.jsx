@@ -24,6 +24,8 @@ import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
 import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
 import { OWNER_RECORD_TYPES, ownerActionsService } from '@/services/ownerActionsService';
 
+const NONE_VALUE = '__none__';
+
 export default function Attendance() {
   const [branchFilter, setBranchFilter] = useState('all');
   const [groupFilter, setGroupFilter] = useState('all');
@@ -110,6 +112,7 @@ export default function Attendance() {
         present: Boolean(editForm.present),
         comment: editForm.comment || null,
         group_id: editForm.group_id || null,
+        branch_id: editingRecord.branch_id || null,
         group_name: group?.name || null,
         coach_id: coach?.id || null,
         coach_name: coach?.full_name || group?.coach_name || null,
@@ -335,9 +338,12 @@ export default function Attendance() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Группа</Label>
-              <Select value={editForm.group_id || ''} onValueChange={v => setEditForm({ ...editForm, group_id: v })}>
+              <Select value={editForm.group_id || NONE_VALUE} onValueChange={v => setEditForm({ ...editForm, group_id: v === NONE_VALUE ? '' : v })}>
                 <SelectTrigger><SelectValue placeholder="Без группы" /></SelectTrigger>
-                <SelectContent>{groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  <SelectItem value={NONE_VALUE}>Без группы</SelectItem>
+                  {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
