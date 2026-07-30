@@ -42,7 +42,15 @@ export default function Coaches() {
   const saveMutation = useMutation({
     mutationFn: (data) => {
       const branch = branches.find(b => b.id === data.branch_id);
-      const payload = { ...data, branch_name: branch?.name, status: data.status || 'active' };
+      const payload = {
+        full_name: data.full_name,
+        branch_id: data.branch_id || null,
+        phone: data.phone || null,
+        belt: data.belt || null,
+        hire_date: data.hire_date || null,
+        branch_name: branch?.name || null,
+        status: data.status || 'active',
+      };
       return editingCoach
         ? crm.entities.Coach.update(editingCoach.id, payload)
         : crm.entities.Coach.create(payload);
