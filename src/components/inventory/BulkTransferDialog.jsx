@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { crm } from '@/services/crm';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -87,9 +87,11 @@ export default function BulkTransferDialog({ open, onClose, products, branches, 
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['stockItems'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
       toast.success(`Перемещено ${selectedEntries.length} позиций`);
       handleClose();
     },
+    onError: (error) => toast.error(error.message),
   });
 
   const handleClose = () => {
