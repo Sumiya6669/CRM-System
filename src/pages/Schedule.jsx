@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Topbar from '@/layouts/Topbar';
@@ -11,36 +11,100 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Calendar, Plus } from 'lucide-react';
+import { Calendar, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/roles';
+import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
+import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
+
+const emptyForm = { name: '', branch_id: '', coach_id: '', age_group: '', max_students: 25, schedule: [] };
 
 export default function Schedule() {
   const [branchFilter, setBranchFilter] = useState('all');
-  const [showAddGroup, setShowAddGroup] = useState(false);
-  const [form, setForm] = useState({ schedule: [] });
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupToDelete, setGroupToDelete] = useState(null);
+  const [form, setForm] = useState(emptyForm);
   const qc = useQueryClient();
+  const { can, canEdit, canDelete } = usePermissions();
+
+  const canWrite = can(PERMISSIONS.GROUPS_WRITE);
+  const canEditGroup = canWrite || canEdit;
+  const showActions = canEditGroup || canDelete;
 
   const { data: groups = [], isLoading } = useQuery({ queryKey: ['groups'], queryFn: () => crm.entities.Group.list() });
   const { data: branches = [] } = useQuery({ queryKey: ['branches'], queryFn: () => crm.entities.Branch.list() });
   const { data: coaches = [] } = useQuery({ queryKey: ['coaches'], queryFn: () => crm.entities.Coach.list() });
   const { data: students = [] } = useQuery({ queryKey: ['students'], queryFn: () => crm.entities.Student.list('-created_date', 500) });
 
-  const createGroupMutation = useMutation({
+  const saveGroupMutation = useMutation({
     mutationFn: (data) => {
       const branch = branches.find(b => b.id === data.branch_id);
       const coach = coaches.find(c => c.id === data.coach_id);
-      return crm.entities.Group.create({
+      const payload = {
         ...data,
-        branch_name: branch?.name, coach_name: coach?.full_name,
-      });
+        branch_name: branch?.name,
+        coach_name: coach?.full_name,
+        schedule: data.schedule || [],
+      };
+      return editingGroup
+        ? crm.entities.Group.update(editingGroup.id, payload)
+        : crm.entities.Group.create(payload);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['groups'] }); setShowAddGroup(false); setForm({ schedule: [] }); toast.success('Группа создана'); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups'] });
+      setShowDialog(false);
+      setEditingGroup(null);
+      setForm(emptyForm);
+      toast.success(editingGroup ? 'Группа обновлена' : 'Группа создана');
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id) => crm.entities.Group.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups'] });
+      setGroupToDelete(null);
+      toast.success('Группа удалена');
+    },
+    onError: (error) => toast.error(error.message),
   });
 
   const filteredGroups = branchFilter === 'all' ? groups : groups.filter(g => g.branch_id === branchFilter);
 
+  const openNew = () => {
+    setEditingGroup(null);
+    setForm(emptyForm);
+    setShowDialog(true);
+  };
+
+  const openEditor = (group) => {
+    setEditingGroup(group);
+    setForm({
+      name: group.name || '',
+      branch_id: group.branch_id || '',
+      coach_id: group.coach_id || '',
+      age_group: group.age_group || '',
+      max_students: group.max_students ?? 25,
+      schedule: Array.isArray(group.schedule) ? group.schedule.map(slot => ({ ...slot })) : [],
+    });
+    setShowDialog(true);
+  };
+
   const addScheduleSlot = () => {
     setForm({ ...form, schedule: [...(form.schedule || []), { day: 'Пн', time_start: '16:00', time_end: '17:30' }] });
+  };
+
+  const removeScheduleSlot = (index) => {
+    setForm({ ...form, schedule: (form.schedule || []).filter((_, i) => i !== index) });
+  };
+
+  const updateScheduleSlot = (index, patch) => {
+    const next = [...(form.schedule || [])];
+    next[index] = { ...next[index], ...patch };
+    setForm({ ...form, schedule: next });
   };
 
   return (
@@ -48,9 +112,11 @@ export default function Schedule() {
       <Topbar title="Расписание" />
       <div className="p-6 max-w-[1400px]">
         <PageHeader title="Расписание занятий" subtitle={`${filteredGroups.length} групп`}>
-          <Button onClick={() => setShowAddGroup(true)} className="gap-1.5 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Новая группа
-          </Button>
+          {canWrite && (
+            <Button onClick={openNew} className="gap-1.5 bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4" /> Новая группа
+            </Button>
+          )}
         </PageHeader>
 
         <div className="flex items-center gap-3 mb-6">
@@ -74,12 +140,20 @@ export default function Schedule() {
               return (
                 <Card key={group.id} className="rounded-2xl border-border">
                   <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start gap-2">
                       <div>
                         <CardTitle className="text-base">{group.name}</CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">{group.branch_name} · {group.coach_name}</p>
                       </div>
-                      <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{group.age_group}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{group.age_group}</span>
+                        {showActions && (
+                          <OwnerActionsMenu
+                            onEdit={canEditGroup ? () => openEditor(group) : undefined}
+                            onDelete={canDelete ? () => setGroupToDelete(group) : undefined}
+                          />
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -90,6 +164,9 @@ export default function Schedule() {
                           <span>{slot.time_start} — {slot.time_end}</span>
                         </div>
                       ))}
+                      {(group.schedule || []).length === 0 && (
+                        <div className="text-xs text-muted-foreground">Расписание не заполнено</div>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {groupStudents.length} учеников{group.max_students ? ` из ${group.max_students}` : ''}
@@ -102,9 +179,9 @@ export default function Schedule() {
         )}
       </div>
 
-      <Dialog open={showAddGroup} onOpenChange={setShowAddGroup}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Новая группа</DialogTitle></DialogHeader>
+      <Dialog open={showDialog} onOpenChange={(open) => { setShowDialog(open); if (!open) setEditingGroup(null); }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editingGroup ? 'Редактировать группу' : 'Новая группа'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5"><Label className="text-xs">Название *</Label><Input value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Дети 6-8 лет" /></div>
             <div className="grid grid-cols-2 gap-3">
@@ -125,7 +202,7 @@ export default function Schedule() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Возрастная группа</Label><Input value={form.age_group || ''} onChange={e => setForm({ ...form, age_group: e.target.value })} placeholder="6-8 лет" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Макс. учеников</Label><Input type="number" value={form.max_students || 25} onChange={e => setForm({ ...form, max_students: Number(e.target.value) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Макс. учеников</Label><Input type="number" min="0" value={form.max_students ?? 0} onChange={e => setForm({ ...form, max_students: Math.max(0, Number(e.target.value) || 0) })} /></div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -134,23 +211,43 @@ export default function Schedule() {
               </div>
               {(form.schedule || []).map((slot, i) => (
                 <div key={i} className="flex items-center gap-2 mb-2">
-                  <Select value={slot.day} onValueChange={v => { const s = [...form.schedule]; s[i] = { ...s[i], day: v }; setForm({ ...form, schedule: s }); }}>
+                  <Select value={slot.day} onValueChange={v => updateScheduleSlot(i, { day: v })}>
                     <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
                     <SelectContent>{DAYS_OF_WEEK.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Input type="time" value={slot.time_start} onChange={e => { const s = [...form.schedule]; s[i] = { ...s[i], time_start: e.target.value }; setForm({ ...form, schedule: s }); }} className="w-28" />
+                  <Input type="time" value={slot.time_start || ''} onChange={e => updateScheduleSlot(i, { time_start: e.target.value })} className="w-28" />
                   <span className="text-sm">—</span>
-                  <Input type="time" value={slot.time_end} onChange={e => { const s = [...form.schedule]; s[i] = { ...s[i], time_end: e.target.value }; setForm({ ...form, schedule: s }); }} className="w-28" />
+                  <Input type="time" value={slot.time_end || ''} onChange={e => updateScheduleSlot(i, { time_end: e.target.value })} className="w-28" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" title="Удалить занятие" onClick={() => removeScheduleSlot(i)}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               ))}
+              {(form.schedule || []).length === 0 && (
+                <p className="text-xs text-muted-foreground">Занятия не добавлены</p>
+              )}
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddGroup(false)}>Отмена</Button>
-            <Button onClick={() => createGroupMutation.mutate(form)} disabled={!form.name || !form.branch_id || !form.coach_id} className="bg-primary hover:bg-primary/90">Создать</Button>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>Отмена</Button>
+            <Button onClick={() => saveGroupMutation.mutate(form)} disabled={!form.name || !form.branch_id || !form.coach_id || saveGroupMutation.isPending} className="bg-primary hover:bg-primary/90">
+              {saveGroupMutation.isPending ? 'Сохранение...' : editingGroup ? 'Сохранить' : 'Создать'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OwnerDeleteDialog
+        open={Boolean(groupToDelete)}
+        onOpenChange={(open) => !open && setGroupToDelete(null)}
+        title={groupToDelete?.name || 'Группа'}
+        details={[
+          `Филиал: ${groupToDelete?.branch_name || '—'}`,
+          `Тренер: ${groupToDelete?.coach_name || '—'}`,
+        ]}
+        isPending={deleteGroupMutation.isPending}
+        onConfirm={() => deleteGroupMutation.mutate(groupToDelete.id)}
+      />
     </div>
   );
 }
