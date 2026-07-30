@@ -18,7 +18,7 @@ import { PERMISSIONS } from '@/constants/roles';
 import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
 import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
 
-const emptyForm = { name: '', branch_id: '', coach_id: '', age_group: '', max_students: 25, schedule: [] };
+const emptyForm = { name: '', branch_id: '', coach_id: '', age_group: '', capacity: 25, schedule: [] };
 
 export default function Schedule() {
   const [branchFilter, setBranchFilter] = useState('all');
@@ -43,10 +43,15 @@ export default function Schedule() {
       const branch = branches.find(b => b.id === data.branch_id);
       const coach = coaches.find(c => c.id === data.coach_id);
       const payload = {
-        ...data,
-        branch_name: branch?.name,
-        coach_name: coach?.full_name,
+        name: data.name,
+        branch_id: data.branch_id || null,
+        coach_id: data.coach_id || null,
+        age_group: data.age_group || null,
+        capacity: Math.max(0, Number(data.capacity) || 0),
         schedule: data.schedule || [],
+        branch_name: branch?.name || null,
+        coach_name: coach?.full_name || null,
+        status: 'active',
       };
       return editingGroup
         ? crm.entities.Group.update(editingGroup.id, payload)
@@ -87,7 +92,7 @@ export default function Schedule() {
       branch_id: group.branch_id || '',
       coach_id: group.coach_id || '',
       age_group: group.age_group || '',
-      max_students: group.max_students ?? 25,
+      capacity: group.capacity ?? 25,
       schedule: Array.isArray(group.schedule) ? group.schedule.map(slot => ({ ...slot })) : [],
     });
     setShowDialog(true);
@@ -169,7 +174,7 @@ export default function Schedule() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {groupStudents.length} учеников{group.max_students ? ` из ${group.max_students}` : ''}
+                      {groupStudents.length} учеников{group.capacity ? ` из ${group.capacity}` : ''}
                     </div>
                   </CardContent>
                 </Card>
@@ -202,7 +207,7 @@ export default function Schedule() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label className="text-xs">Возрастная группа</Label><Input value={form.age_group || ''} onChange={e => setForm({ ...form, age_group: e.target.value })} placeholder="6-8 лет" /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Макс. учеников</Label><Input type="number" min="0" value={form.max_students ?? 0} onChange={e => setForm({ ...form, max_students: Math.max(0, Number(e.target.value) || 0) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Макс. учеников</Label><Input type="number" min="0" value={form.capacity ?? 0} onChange={e => setForm({ ...form, capacity: Math.max(0, Number(e.target.value) || 0) })} /></div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
