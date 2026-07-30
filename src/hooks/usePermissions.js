@@ -51,4 +51,4 @@ export const usePermissions = () => {
       canUseRecordActions: canEdit || canDelete || canArchive || canUnlock,
     };
   }, [rawPermissions, role]);
-};
+}; 
