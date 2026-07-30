@@ -59,8 +59,30 @@ const normalizeSort = (sort) => {
 
 const nowIso = () => new Date().toISOString();
 
+/**
+ * Пустая строка из формы (<Select> без выбора, незаполненный input) недопустима
+ * для колонок uuid, date и numeric — Postgres отвечает
+ * "invalid input syntax for type uuid: ''". Приводим такие значения к null.
+ */
+const normalizeValue = (value) => {
+  if (typeof value === 'string' && value.trim() === '') {
+    return null;
+  }
+  return value;
+};
+
+const normalizePayload = (payload = {}) => {
+  return Object.entries(payload).reduce((result, [key, value]) => {
+    if (value === undefined) {
+      return result;
+    }
+    result[key] = normalizeValue(value);
+    return result;
+  }, {});
+};
+
 const withWriteDates = (payload, isCreate = false) => ({
-  ...payload,
+  ...normalizePayload(payload),
   ...(isCreate && !payload.created_date ? { created_date: nowIso() } : {}),
   updated_date: nowIso(),
 });
