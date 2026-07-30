@@ -37,16 +37,16 @@ export default function OwnerDeleteDialog({
             {details.map((detail) => <div key={detail} className="text-muted-foreground">{detail}</div>)}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Причина *</Label>
-            <Textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="Укажите причину действия" />
+            <Label className="text-xs">Причина</Label>
+            <Textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="Необязательно, но попадёт в журнал изменений" />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button
             variant="destructive"
-            disabled={!reason.trim() || isPending}
-            onClick={() => onConfirm(reason.trim())}
+            disabled={isPending}
+            onClick={() => onConfirm(reason.trim() || 'Без указания причины')}
           >
             {isPending ? 'Удаление...' : permanent ? 'Удалить безвозвратно' : 'Подтвердить удаление'}
           </Button>
