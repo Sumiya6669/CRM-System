@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +19,7 @@ import BulkTransferDialog from '@/components/inventory/BulkTransferDialog';
 import { useDebounce } from '@/hooks/useDebounce';
 import { usePagination } from '@/hooks/usePagination';
 import { usePermissions } from '@/hooks/usePermissions';
+import { PERMISSIONS } from '@/constants/roles';
 import OwnerActionsMenu from '@/components/owner/OwnerActionsMenu';
 import OwnerDeleteDialog from '@/components/owner/OwnerDeleteDialog';
 import { OWNER_RECORD_TYPES, ownerActionsService } from '@/services/ownerActionsService';
@@ -35,7 +36,9 @@ export default function Inventory() {
   const [transferForm, setTransferForm] = useState({});
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const { isOwner } = usePermissions();
+  const { can, isOwner, canEdit, canDelete, canArchive, canUseRecordActions } = usePermissions();
+  const canWriteInventory = can(PERMISSIONS.INVENTORY_WRITE);
+  const showRecordActions = canWriteInventory || canUseRecordActions;
   const debouncedSearch = useDebounce(search, 250);
 
   const { data: products = [], isLoading } = useQuery({
@@ -116,7 +119,7 @@ export default function Inventory() {
       const branchStocks = branches.map(b => ({
         branch: b, quantity: items.find(si => si.branch_id === b.id)?.quantity || 0,
       }));
-      return { ...p, totalStock, branchStocks, isLow: totalStock <= (p.min_stock || 5) };
+      return { ...p, totalStock, branchStocks, isLow: totalStock <= (p.min_stock ?? 0) };
     });
   }, [products, stockItems, branches]);
 
@@ -154,9 +157,11 @@ export default function Inventory() {
           <Button variant="outline" onClick={() => setShowBulkTransfer(true)} className="gap-1.5">
             <ArrowLeftRight className="w-4 h-4" /> Перемещение
           </Button>
-          <Button onClick={openNewProduct} className="gap-1.5 bg-primary hover:bg-primary/90">
-            <Plus className="w-4 h-4" /> Добавить товар
-          </Button>
+          {canWriteInventory && (
+            <Button onClick={openNewProduct} className="gap-1.5 bg-primary hover:bg-primary/90">
+              <Plus className="w-4 h-4" /> Добавить товар
+            </Button>
+          )}
         </PageHeader>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -189,7 +194,7 @@ export default function Inventory() {
                   <TableHead className="text-xs font-semibold">Цена</TableHead>
                   <TableHead className="text-xs font-semibold">Общий остаток</TableHead>
                   {branches.map(b => <TableHead key={b.id} className="text-xs font-semibold">{b.name?.split(' ')[0]}</TableHead>)}
-                  {isOwner && <TableHead className="w-12"><span className="sr-only">Owner Actions</span></TableHead>}
+                  {showRecordActions && <TableHead className="w-12"><span className="sr-only">Действия</span></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -211,13 +216,13 @@ export default function Inventory() {
                     {p.branchStocks.map(bs => (
                       <TableCell key={bs.branch.id} data-label={bs.branch.name || 'Филиал'} className="text-sm">{bs.quantity}</TableCell>
                     ))}
-                    {isOwner && (
-                      <TableCell data-label="Owner Actions">
+                    {showRecordActions && (
+                      <TableCell data-label="Действия">
                         <OwnerActionsMenu
-                          onEdit={() => openProductEditor(p)}
-                          onDelete={() => setProductToDelete(p)}
-                          onArchive={!p.is_archived ? () => ownerProductMutation.mutate({ id: p.id, action: 'archive', reason: 'Архивация товара Owner' }) : undefined}
-                          onUnarchive={p.is_archived ? () => ownerProductMutation.mutate({ id: p.id, action: 'unarchive', reason: 'Возврат товара из архива Owner' }) : undefined}
+                          onEdit={canWriteInventory || canEdit ? () => openProductEditor(p) : undefined}
+                          onDelete={canDelete ? () => setProductToDelete(p) : undefined}
+                          onArchive={canArchive && !p.is_archived ? () => ownerProductMutation.mutate({ id: p.id, action: 'archive', reason: 'Архивация товара' }) : undefined}
+                          onUnarchive={canArchive && p.is_archived ? () => ownerProductMutation.mutate({ id: p.id, action: 'unarchive', reason: 'Возврат товара из архива' }) : undefined}
                           onViewHistory={() => navigate(`/activity-log?entity_type=inventory&entity_id=${p.id}`)}
                         />
                       </TableCell>
@@ -251,9 +256,9 @@ export default function Inventory() {
               <div className="space-y-1.5"><Label className="text-xs">Размер</Label><Input value={form.size || ''} onChange={e => setForm({ ...form, size: e.target.value })} /></div>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1.5"><Label className="text-xs">Себестоимость</Label><Input type="number" value={form.cost_price || ''} onChange={e => setForm({ ...form, cost_price: Number(e.target.value) })} /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Цена продажи *</Label><Input type="number" value={form.sell_price || ''} onChange={e => setForm({ ...form, sell_price: Number(e.target.value) })} /></div>
-              <div className="space-y-1.5"><Label className="text-xs">Мин. остаток</Label><Input type="number" value={form.min_stock || 5} onChange={e => setForm({ ...form, min_stock: Number(e.target.value) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Себестоимость</Label><Input type="number" min="0" value={form.cost_price ?? ''} onChange={e => setForm({ ...form, cost_price: Number(e.target.value) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Цена продажи *</Label><Input type="number" min="0" value={form.sell_price ?? ''} onChange={e => setForm({ ...form, sell_price: Number(e.target.value) })} /></div>
+              <div className="space-y-1.5"><Label className="text-xs">Мин. остаток</Label><Input type="number" min="0" value={form.min_stock ?? 0} onChange={e => setForm({ ...form, min_stock: Math.max(0, Number(e.target.value) || 0) })} /></div>
             </div>
           </div>
           <DialogFooter>
