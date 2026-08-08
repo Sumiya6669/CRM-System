@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Trash2,
+  Truck,
   Users,
   X,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ const navItems = [
   { label: 'Ученики', icon: Users, path: '/students', permission: PERMISSIONS.STUDENTS_READ },
   { label: 'Оплаты', icon: CreditCard, path: '/payments', permission: PERMISSIONS.PAYMENTS_READ },
   { label: 'Склад', icon: Package, path: '/inventory', permission: PERMISSIONS.INVENTORY_READ },
+  { label: 'Поступления', icon: Truck, path: '/receipts', permission: PERMISSIONS.INVENTORY_READ },
   { label: 'Продажи', icon: ShoppingCart, path: '/sales', permission: PERMISSIONS.SALES_READ },
   { label: 'Посещаемость', icon: CalendarCheck, path: '/attendance', permission: PERMISSIONS.ATTENDANCE_READ },
   { label: 'Расписание', icon: Calendar, path: '/schedule', permission: PERMISSIONS.GROUPS_WRITE },
