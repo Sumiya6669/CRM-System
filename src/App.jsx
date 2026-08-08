@@ -19,6 +19,7 @@ const Branches = lazy(() => import('@/pages/Branches'));
 const BranchDetail = lazy(() => import('@/pages/BranchDetail'));
 const Payments = lazy(() => import('@/pages/Payments'));
 const Inventory = lazy(() => import('@/pages/Inventory'));
+const Receipts = lazy(() => import('@/pages/Receipts'));
 const Sales = lazy(() => import('@/pages/Sales'));
 const Attendance = lazy(() => import('@/pages/Attendance'));
 const Schedule = lazy(() => import('@/pages/Schedule'));
@@ -63,6 +64,7 @@ function AppRoutes() {
             <Route path="/branches/:id" element={withPermission(<BranchDetail />, [PERMISSIONS.DASHBOARD_READ])} />
             <Route path="/payments" element={withPermission(<Payments />, [PERMISSIONS.PAYMENTS_READ])} />
             <Route path="/inventory" element={withPermission(<Inventory />, [PERMISSIONS.INVENTORY_READ])} />
+            <Route path="/receipts" element={withPermission(<Receipts />, [PERMISSIONS.INVENTORY_READ])} />
             <Route path="/sales" element={withPermission(<Sales />, [PERMISSIONS.SALES_READ])} />
             <Route path="/attendance" element={withPermission(<Attendance />, [PERMISSIONS.ATTENDANCE_READ])} />
             <Route path="/schedule" element={withPermission(<Schedule />, [PERMISSIONS.ATTENDANCE_READ])} />
