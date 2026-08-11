@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { crm } from '@/services/crm';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -91,9 +91,11 @@ export default function SaleCartDialog({ open, onClose, products, students, bran
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['stockItems'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
       toast.success(`Продажа оформлена на ${formatMoney(total)}`);
       handleClose();
     },
+    onError: (error) => toast.error(error.message),
   });
 
   const handleClose = () => {
