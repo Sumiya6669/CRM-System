@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { crm } from '@/services/crm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +41,7 @@ export default function StudentDetail() {
   const archiveMutation = useMutation({
     mutationFn: () => crm.entities.Student.update(id, { status: 'archived' }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['student', id] }); toast.success('Ученик архивирован'); },
+    onError: (error) => toast.error(error.message),
   });
 
   const transferMutation = useMutation({
@@ -69,6 +70,7 @@ export default function StudentDetail() {
       setShowTransfer(false);
       toast.success('Ученик переведён');
     },
+    onError: (error) => toast.error(error.message),
   });
 
   if (isLoading || !student) {
