@@ -69,6 +69,7 @@ export default function Attendance() {
       setShowMarkDialog(false);
       toast.success('Посещаемость отмечена');
     },
+    onError: (error) => toast.error(error.message),
   });
 
   const updateMutation = useMutation({
