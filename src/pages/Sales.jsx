@@ -95,12 +95,13 @@ export default function Sales() {
       const product = products.find(p => p.id === data.product_id);
       const student = students.find(s => s.id === data.student_id);
       const branch = branches.find(b => b.id === data.branch_id);
-      const total = (product?.sell_price || 0) * (data.quantity || 1);
+      const quantity = data.quantity || 1;
+      const total = (product?.sell_price || 0) * quantity;
 
-      // Deduct from stock
       const stockItem = stockItems.find(si => si.product_id === data.product_id && si.branch_id === data.branch_id);
-      if (stockItem) {
-        await crm.entities.StockItem.update(stockItem.id, { quantity: Math.max(0, (stockItem.quantity || 0) - (data.quantity || 1)) });
+      const available = stockItem?.quantity || 0;
+      if (available < quantity) {
+        throw new Error(`Недостаточно товара на складе: доступно ${available} шт.`);
       }
 
       const sale = await crm.entities.Sale.create({
@@ -114,6 +115,14 @@ export default function Sales() {
         document_status: 'completed',
       });
 
+      // Остаток списываем только после того, как продажа действительно записана,
+      // иначе при сбое товар исчез бы со склада без продажи.
+      if (stockItem) {
+        await crm.entities.StockItem.update(stockItem.id, {
+          quantity: Math.max(0, available - quantity),
+        });
+      }
+
       await crm.entities.ActivityLog.create({
         action_type: 'sale_completed',
         description: `Продажа: ${product?.name} × ${data.quantity || 1} — ${formatMoney(total)}`,
@@ -125,6 +134,7 @@ export default function Sales() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sales'] });
       qc.invalidateQueries({ queryKey: ['stockItems'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
       setShowAddDialog(false);
       setEditingSale(null);
       setForm({});
