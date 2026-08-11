@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   BarChart3,
   Building2,
+  CircleDollarSign,
   Calendar,
   CalendarCheck,
   ChevronLeft,
@@ -36,6 +37,7 @@ const navItems = [
   { label: 'Расписание', icon: Calendar, path: '/schedule', permission: PERMISSIONS.GROUPS_WRITE },
   { label: 'Тренеры', icon: Dumbbell, path: '/coaches', permission: PERMISSIONS.TRAINERS_READ },
   { label: 'Отчёты', icon: BarChart3, path: '/reports', permission: PERMISSIONS.REPORTS_READ },
+  { label: 'Отчёты по продажам', icon: CircleDollarSign, path: '/reports/sales', permission: PERMISSIONS.REPORTS_READ },
   { label: 'Журнал', icon: ScrollText, path: '/activity-log', permission: PERMISSIONS.AUDIT_LOGS_READ },
   { label: 'Корзина', icon: Trash2, path: '/trash', permission: PERMISSIONS.DOCUMENTS_RESTORE },
   { label: 'Пользователи', icon: ShieldCheck, path: '/users', permission: PERMISSIONS.USERS_MANAGE },
@@ -124,4 +126,3 @@ export default function Sidebar({ collapsed, mobileOpen, onMobileClose, onToggle
     </>
   );
 }
- 
