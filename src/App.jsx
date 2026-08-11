@@ -25,6 +25,7 @@ const Attendance = lazy(() => import('@/pages/Attendance'));
 const Schedule = lazy(() => import('@/pages/Schedule'));
 const Coaches = lazy(() => import('@/pages/Coaches'));
 const Reports = lazy(() => import('@/pages/Reports'));
+const SalesReports = lazy(() => import('@/pages/SalesReports'));
 const ActivityLogPage = lazy(() => import('@/pages/ActivityLogPage'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const UserManagement = lazy(() => import('@/pages/UserManagement'));
@@ -70,6 +71,7 @@ function AppRoutes() {
             <Route path="/schedule" element={withPermission(<Schedule />, [PERMISSIONS.ATTENDANCE_READ])} />
             <Route path="/coaches" element={withPermission(<Coaches />, [PERMISSIONS.STUDENTS_READ])} />
             <Route path="/reports" element={withPermission(<Reports />, [PERMISSIONS.REPORTS_READ])} />
+            <Route path="/reports/sales" element={withPermission(<SalesReports />, [PERMISSIONS.REPORTS_READ])} />
             <Route path="/activity-log" element={withPermission(<ActivityLogPage />, [PERMISSIONS.AUDIT_LOGS_READ])} />
             <Route path="/users" element={withPermission(<UserManagement />, [PERMISSIONS.USERS_MANAGE])} />
             <Route path="/trash" element={withPermission(<RecycleBin />, [PERMISSIONS.DOCUMENTS_RESTORE])} />
