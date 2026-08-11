@@ -192,9 +192,38 @@ export const createRepository = (entityName, tableName) => {
   };
 };
 
+/**
+ * Запись в журнал изменений не должна ломать основную операцию.
+ * Если продажа сохранилась, а строчка журнала — нет, пользователь должен
+ * увидеть свою продажу, а не сообщение об ошибке. Такой сбой пишем в консоль
+ * и продолжаем работу.
+ */
+const withNonBlockingWrites = (repository) => ({
+  ...repository,
+  create: async (payload) => {
+    try {
+      return await repository.create(payload);
+    } catch (error) {
+      console.warn('Не удалось записать событие в журнал изменений:', error.message);
+      return null;
+    }
+  },
+  bulkCreate: async (payloads) => {
+    try {
+      return await repository.bulkCreate(payloads);
+    } catch (error) {
+      console.warn('Не удалось записать события в журнал изменений:', error.message);
+      return [];
+    }
+  },
+});
+
 export const createEntityRepositories = () => {
   return Object.entries(ENTITY_TABLES).reduce((repositories, [entityName, tableName]) => {
-    repositories[entityName] = createRepository(entityName, tableName);
+    const repository = createRepository(entityName, tableName);
+    repositories[entityName] = tableName === 'audit_logs'
+      ? withNonBlockingWrites(repository)
+      : repository;
     return repositories;
   }, {});
 };
