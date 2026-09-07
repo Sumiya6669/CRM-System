@@ -16,9 +16,13 @@ export default function Dashboard() {
     queryKey: ['students'],
     queryFn: () => crm.entities.Student.list('-created_date', 500),
   });
+  // Сортируем по дате оплаты, а не по дате создания записи.
+  // Дашборд считает текущий месяц: при сортировке по created_date
+  // лимит отсекал оплаты, внесённые раньше, — из-за этого филиалы
+  // со старыми записями показывали ноль.
   const { data: payments = [], isLoading: loadingPayments } = useQuery({
     queryKey: ['payments'],
-    queryFn: () => crm.entities.Payment.list('-created_date', 500),
+    queryFn: () => crm.entities.Payment.list('-payment_date', 1000),
   });
   const { data: branches = [] } = useQuery({
     queryKey: ['branches'],
@@ -26,7 +30,7 @@ export default function Dashboard() {
   });
   const { data: sales = [] } = useQuery({
     queryKey: ['sales'],
-    queryFn: () => crm.entities.Sale.list('-created_date', 100),
+    queryFn: () => crm.entities.Sale.list('-sale_date', 1000),
   });
   const { data: stockItems = [] } = useQuery({
     queryKey: ['stockItems'],
@@ -42,7 +46,7 @@ export default function Dashboard() {
   });
   const { data: attendance = [] } = useQuery({
     queryKey: ['attendance'],
-    queryFn: () => crm.entities.Attendance.list('-date', 500),
+    queryFn: () => crm.entities.Attendance.list('-date', 1000),
   });
 
   const isLoading = loadingStudents || loadingPayments;
@@ -59,6 +63,9 @@ export default function Dashboard() {
   const monthPayments = payments.filter(p => p.payment_date && p.payment_date.startsWith(thisMonth) && p.status !== 'cancelled');
   const monthRevenue = monthPayments.reduce((s, p) => s + (p.amount || 0), 0);
 
+  const monthSales = sales.filter(s => s.sale_date && s.sale_date.startsWith(thisMonth) && s.document_status !== 'cancelled');
+  const monthSalesTotal = monthSales.reduce((sum, s) => sum + (s.total || 0), 0);
+
   const debtStudents = students.filter(s => s.status === 'active' && (s.debt || 0) > 0);
   const totalDebt = debtStudents.reduce((s, st) => s + (st.debt || 0), 0);
 
@@ -69,13 +76,44 @@ export default function Dashboard() {
     return totalStock <= (p.min_stock ?? 0);
   });
 
-  const monthSalesTotal = sales
-    .filter(s => s.sale_date && s.sale_date.startsWith(thisMonth))
-    .reduce((sum, s) => sum + (s.total || 0), 0);
   const monthAttendance = attendance.filter(record => record.date?.startsWith(thisMonth));
   const attendanceRate = monthAttendance.length
     ? Math.round((monthAttendance.filter(record => record.present).length / monthAttendance.length) * 100)
     : 0;
+
+  /**
+   * Запись относится к филиалу, если совпал branch_id.
+   * Если branch_id не проставлен (так бывает у записей, созданных до
+   * привязки к филиалу), пробуем сопоставить по названию — иначе
+   * деньги молча выпадали из отчёта по филиалам.
+   */
+  const belongsToBranch = (record, branch) => {
+    if (record.branch_id) return record.branch_id === branch.id;
+    if (record.branch_name && branch.name) {
+      return record.branch_name.trim().toLowerCase() === branch.name.trim().toLowerCase();
+    }
+    return false;
+  };
+
+  const branchRows = branches.map(branch => {
+    const branchStudents = activeStudents.filter(s => belongsToBranch(s, branch));
+    return {
+      branch,
+      students: branchStudents,
+      revenue: monthPayments.filter(p => belongsToBranch(p, branch)).reduce((s, p) => s + (p.amount || 0), 0),
+      salesTotal: monthSales.filter(s => belongsToBranch(s, branch)).reduce((s, sale) => s + (sale.total || 0), 0),
+      debt: branchStudents.reduce((s, st) => s + (st.debt || 0), 0),
+    };
+  });
+
+  // Деньги, которые не удалось отнести ни к одному филиалу.
+  // Показываем отдельной строкой, чтобы расхождение было видно, а не терялось.
+  const orphanRevenue = monthPayments
+    .filter(p => !branches.some(branch => belongsToBranch(p, branch)))
+    .reduce((s, p) => s + (p.amount || 0), 0);
+  const orphanSales = monthSales
+    .filter(s => !branches.some(branch => belongsToBranch(s, branch)))
+    .reduce((s, sale) => s + (sale.total || 0), 0);
 
   if (isLoading) {
     return (
@@ -95,10 +133,10 @@ export default function Dashboard() {
         {/* Stats grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           <StatCard label="Активных учеников" value={activeStudents.length} icon={Users} sublabel={`из ${students.length} всего`} />
-          <StatCard label="Новые за месяц" value={newStudentsThisMonth.length} icon={UserPlus} trend="+12%" trendUp />
-          <StatCard label="Выручка за месяц" value={formatMoney(monthRevenue)} icon={TrendingUp} />
+          <StatCard label="Новые за месяц" value={newStudentsThisMonth.length} icon={UserPlus} />
+          <StatCard label="Выручка за месяц" value={formatMoney(monthRevenue)} icon={TrendingUp} sublabel={`${monthPayments.length} оплат`} />
           <StatCard label="Задолженность" value={formatMoney(totalDebt)} icon={AlertTriangle} sublabel={`${debtStudents.length} должников`} />
-          <StatCard label="Продажи товаров" value={formatMoney(monthSalesTotal)} icon={ShoppingCart} />
+          <StatCard label="Продажи товаров" value={formatMoney(monthSalesTotal)} icon={ShoppingCart} sublabel={`${monthSales.length} продаж`} />
           <StatCard label="Просроченные оплаты" value={overduePayments.length} icon={Clock} />
           <StatCard label="Филиалов" value={branches.length} icon={Building2} />
           <StatCard label="Товаров с низким остатком" value={lowStockProducts.length} icon={Package} />
@@ -142,7 +180,17 @@ export default function Dashboard() {
                   <span className="text-sm font-semibold text-blue-700">{lowStockProducts.length}</span>
                 </Link>
               )}
-              {debtStudents.length === 0 && overduePayments.length === 0 && lowStockProducts.length === 0 && (
+              {(orphanRevenue > 0 || orphanSales > 0) && (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-100">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-slate-500" />
+                    <span className="truncate text-sm font-medium text-slate-800">Записи без филиала</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">{formatMoney(orphanRevenue + orphanSales)}</span>
+                </div>
+              )}
+              {debtStudents.length === 0 && overduePayments.length === 0 && lowStockProducts.length === 0
+                && orphanRevenue === 0 && orphanSales === 0 && (
                 <p className="text-sm text-muted-foreground py-4 text-center">Всё в порядке!</p>
               )}
             </CardContent>
@@ -157,25 +205,34 @@ export default function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {branches.map(branch => {
-                const branchStudents = activeStudents.filter(s => s.branch_id === branch.id);
-                const branchRevenue = monthPayments
-                  .filter(p => p.branch_id === branch.id)
-                  .reduce((s, p) => s + (p.amount || 0), 0);
-                const branchDebt = branchStudents.reduce((s, st) => s + (st.debt || 0), 0);
-                return (
-                  <Link key={branch.id} to={`/branches/${branch.id}`} className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">{branch.name}</div>
-                      <div className="text-xs text-muted-foreground">{branch.city} · {branchStudents.length} уч.</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold">{formatMoney(branchRevenue)}</div>
-                      {branchDebt > 0 && <div className="text-xs text-red-500">Долг: {formatMoney(branchDebt)}</div>}
-                    </div>
-                  </Link>
-                );
-              })}
+              {branchRows.map(({ branch, students: branchStudents, revenue, salesTotal, debt }) => (
+                <Link key={branch.id} to={`/branches/${branch.id}`} className="flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">{branch.name}</div>
+                    <div className="text-xs text-muted-foreground">{branch.city} · {branchStudents.length} уч.</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold">{formatMoney(revenue)}</div>
+                    {salesTotal > 0 && <div className="text-xs text-muted-foreground">Товары: {formatMoney(salesTotal)}</div>}
+                    {debt > 0 && <div className="text-xs text-red-500">Долг: {formatMoney(debt)}</div>}
+                  </div>
+                </Link>
+              ))}
+              {(orphanRevenue > 0 || orphanSales > 0) && (
+                <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-slate-700">Без филиала</div>
+                    <div className="text-xs text-muted-foreground">Не привязано к филиалу</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold">{formatMoney(orphanRevenue)}</div>
+                    {orphanSales > 0 && <div className="text-xs text-muted-foreground">Товары: {formatMoney(orphanSales)}</div>}
+                  </div>
+                </div>
+              )}
+              {branches.length === 0 && (
+                <p className="text-sm text-muted-foreground py-4 text-center">Филиалы не созданы</p>
+              )}
             </CardContent>
           </Card>
         </div>
